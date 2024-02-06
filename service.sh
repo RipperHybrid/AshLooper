@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Define paths
-BOOT_FILE="/data/adb/modules/AshLooper/boot_count"
 MODULE_PROP="/data/adb/modules/AshLooper/module.prop"
 LOG_FILE="/cache/AshLooper.log"
 
