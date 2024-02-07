@@ -18,7 +18,9 @@ start_run() {
     fi
 }
 
-threshold=3
+# Set thresholds for Magisk and KSU
+MAGISK_THRESHOLD=3
+KSU_THRESHOLD=4
 
 update_loops_property() {
     log "Entering update loops property function"
@@ -37,26 +39,26 @@ update_loops_property() {
 }
 
 handle_ksu() {
-      log "KernelSU detected. Mounting modules..."
-      mount -t auto -o loop /data/adb/ksu/modules.img /data/adb/modules
-      sleep 1
-      loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
-      log "Reading the current loop value ($loops)"
-    if [ "$loops" -ge "$threshold" ]; then
-        log "Threshold Limit Reached."
+    log "KernelSU detected. Mounting modules..."
+    mount -t auto -o loop /data/adb/ksu/modules.img /data/adb/modules
+    sleep 1
+    loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
+    log "Reading the current loop value ($loops)"
+    if [ "$loops" -ge "$KSU_THRESHOLD" ]; then
+        log "Threshold Limit Reached for KSU."
         sed -i "s/loops=.*/loops=0/" "$MODULE_PROP"
         log "Resetting The Loop Value"
     
-    log "Disabling modules..."
-    for module_dir in "$MODULES_DIR"/*; do
-        if [ "$module_dir" != "$MODULES_DIR/AshLooper" ] && [ -d "$module_dir" ]; then
-            log "Disabling: $module_dir"
-            touch "$module_dir/disable"
-        fi
-    done
+        log "Disabling modules..."
+        for module_dir in "$MODULES_DIR"/*; do
+            if [ "$module_dir" != "$MODULES_DIR/AshLooper" ] && [ -d "$module_dir" ]; then
+                log "Disabling: $module_dir"
+                touch "$module_dir/disable"
+            fi
+        done
     
-    log "Triggering recovery mode..."
-    $REBOOT_RECOVERY_CMD
+        log "Triggering recovery mode..."
+        $REBOOT_RECOVERY_CMD
     fi
 }
 
@@ -64,8 +66,8 @@ handle_magisk() {
     log "Magisk detected. Checking for boot loops..."
     loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
     log "Reading the current loop value ($loops)"
-    if [ "$loops" -ge "$threshold" ]; then
-        log "Threshold Limit Reached."
+    if [ "$loops" -ge "$MAGISK_THRESHOLD" ]; then
+        log "Threshold Limit Reached for Magisk."
         sed -i "s/loops=.*/loops=0/" "$MODULE_PROP"
         log "Resetting The Loop Value"
         
@@ -79,7 +81,7 @@ handle_magisk() {
         
         log "Triggering recovery mode..."
         $REBOOT_RECOVERY_CMD
-        fi
+    fi
 }
 
 main() {
