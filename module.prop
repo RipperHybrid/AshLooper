@@ -1,6 +1,8 @@
 id=AshLooper
 name=AshLooper - Boot Loop Protection
 version=2.0
+versionCode=132
 author=AshBorn(@Ripper_Hybrid)
 loops=0
 description=AshLooper module tracks boot loops and disable Module & triggers recovery mode if necessary to protect the device from continuous boot loops.
+updateJson=https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/update.json
