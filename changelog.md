@@ -1,18 +1,9 @@
-## Version 2.1 Changelog
+## Version 2.2 Changelog
 
-- **Enhancement:**  
-  - Improved installation for KSU support:
-    - Fixed module installation process for KSU, ensuring proper handling of `modules.img` deletion regardless of previous installation status.
-    - Increased threshold to 4 boot attempts for improved KSU support.
-    - Added update JSON functionality for easy module updates from Magisk or KSU.
-  - Support for Different Thresholds:
-    - Implemented support for setting different boot loop thresholds for Magisk and KSU environments.
-    - Magisk threshold set to 3, KSU threshold set to 4.
+### Change Log for AshLooper Module Script (Version 2.2):
 
-- **Testing Note:**
-  - The module has been tested on Realme UI 4 and in custom ROMs.
-  - Tested on:
-    - SparkOs A13
-    - Afterlife A13
-    - Voltage A14
-    - LeafOs 13
+- Modified the script to conditionally list the folders inside the modules directory based on whether the boot loop threshold is reached.
+- Refactored the `handle_ksu` and `handle_magisk` functions to log modules only if the boot loop threshold isn't reached.
+- Updated the `list_modules` function calls within the `handle_ksu` and `handle_magisk` functions to reflect the conditional logging of modules.
+- Ensured that if the boot loop threshold is reached, modules are listed before triggering the recovery mode.
+- Improved clarity and maintainability of the script by documenting the changes made.

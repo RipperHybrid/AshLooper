@@ -7,30 +7,29 @@ REBOOT_RECOVERY_CMD="reboot recovery"
 LOG_FILE="/cache/AshLooper.log"
 PREVIOUS_LOG_FILE="${LOG_FILE/.log/-Previous-Boot.log}"
 
+# Get the current value of loops from the module property file
+loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
+
+# Function to log messages with timestamps into the log file
 log() {
     echo "$(date): $1" >> "$LOG_FILE"
     echo "" >> "$LOG_FILE"
 }
 
+# Function to handle moving the log file to a backup location
 start_run() {
     if [ -f "$LOG_FILE" ]; then
         mv "$LOG_FILE" "$PREVIOUS_LOG_FILE"
     fi
 }
 
-# Set thresholds for Magisk and KSU
+# Thresholds for Magisk and KSU
 MAGISK_THRESHOLD=3
 KSU_THRESHOLD=4
 
+# Function to update the loops property in the module property file
 update_loops_property() {
     log "Entering update loops property function"
-    
-    loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
-
-    if [ -z "$loops" ]; then
-        loops=0
-    fi
-
     loops=$((loops + 1))
     log "Increment the value of loops"
 
@@ -38,11 +37,16 @@ update_loops_property() {
     log "Updating The Module Prop With New Loop Value"
 }
 
+# Function to list all modules present in the modules directory
+list_modules() {
+    log "Listing modules present in the modules directory:"
+    ls -d "$MODULES_DIR"/* >> "$LOG_FILE"
+    echo " ">> "$LOG_FILE"
+}
+
+# Function to handle boot loops when using KernelSU
 handle_ksu() {
-    log "KernelSU detected. Mounting modules..."
-    mount -t auto -o loop /data/adb/ksu/modules.img /data/adb/modules
-    sleep 1
-    loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
+    log "KernelSU detected. Checking for boot loops..."
     log "Reading the current loop value ($loops)"
     if [ "$loops" -ge "$KSU_THRESHOLD" ]; then
         log "Threshold Limit Reached for KSU."
@@ -57,14 +61,18 @@ handle_ksu() {
             fi
         done
     
+        list_modules
         log "Triggering recovery mode..."
         $REBOOT_RECOVERY_CMD
+    else
+        # Log modules only if the threshold isn't reached
+        list_modules
     fi
 }
 
+# Function to handle boot loops when using Magisk
 handle_magisk() {
     log "Magisk detected. Checking for boot loops..."
-    loops=$(grep "loops=" "$MODULE_PROP" | cut -d '=' -f 2)
     log "Reading the current loop value ($loops)"
     if [ "$loops" -ge "$MAGISK_THRESHOLD" ]; then
         log "Threshold Limit Reached for Magisk."
@@ -79,11 +87,16 @@ handle_magisk() {
             fi
         done
         
+        list_modules
         log "Triggering recovery mode..."
         $REBOOT_RECOVERY_CMD
+    else
+        # Log modules only if the threshold isn't reached
+        list_modules
     fi
 }
 
+# Main function
 main() {
     start_run
     log "Executing post-fs-data.sh"
