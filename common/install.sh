@@ -238,6 +238,8 @@ ui_print "- Magisk: $MAGISK_VER"
 fi
 ui_print "###########################"
 ui_print "- Select A Threshold For Loop Count"
+ui_print "- Volume up (-) to change selection"
+ui_print "- Volume down (+) to decide"
 ui_print " "
 
 selected_threshold=""
