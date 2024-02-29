@@ -1,55 +1,81 @@
-#!/sbin/sh
+##########################################################################################
+#
+# MMT Extended Config Script
+#
+##########################################################################################
 
-# Define the paths
-MODULE_PATH="/data/adb/modules/AshLooper"
-KSU_PATH="/data/adb/ksu/modules.img"
-MODULE_PROP="$MODPATH/module.prop"
+##########################################################################################
+# Config Flags
+##########################################################################################
 
-# Function to display messages during installation
-print_message() {
-    echo "- $1"
+# Uncomment and change 'MINAPI' and 'MAXAPI' to the minimum and maximum android version for your mod
+# Uncomment DYNLIB if you want libs installed to vendor for oreo+ and system for anything older
+# Uncomment PARTOVER if you have a workaround in place for extra partitions in regular magisk install (can mount them yourself - you will need to do this each boot as well). If unsure, keep commented
+# Uncomment PARTITIONS and list additional partitions you will be modifying (other than system and vendor), for example: PARTITIONS="/odm /product /system_ext"
+#MINAPI=21
+#MAXAPI=25
+#DYNLIB=true
+#PARTOVER=true
+#PARTITIONS=""
+##########################################################################################
+# Replace list
+##########################################################################################
+
+# List all directories you want to directly replace in the system
+# Check the documentations for more info why you would need this
+
+# Construct your list in the following format
+# This is an example
+REPLACE_EXAMPLE="
+/system/app/Youtube
+/system/priv-app/SystemUI
+/system/priv-app/Settings
+/system/framework
+"
+
+# Construct your own list here
+REPLACE="
+"
+
+##########################################################################################
+# Permissions
+##########################################################################################
+
+# Set what you want to display when installing your module
+
+print_modname() {
+  ui_print "********************************"
+  ui_print "   Bootloop Protector     "
+  ui_print "********************************"
+  ui_print "By AshBorn (@Ripper_Hybrid) "
+  ui_print " "
+ 
+ 
+set_permissions() {
+  set_perm_recursive $MODPATH 0 0 0755 0644
+}
+  : # Remove this if adding to this function
+
+  # Note that all files/folders in magisk module directory have the $MODPATH prefix - keep this prefix on all of your files/folders
+  # Some examples:
+  
+  # For directories (includes files in them):
+  # set_perm_recursive  <dirname>                <owner> <group> <dirpermission> <filepermission> <contexts> (default: u:object_r:system_file:s0)
+  
+  # set_perm_recursive $MODPATH/system/lib 0 0 0755 0644
+  # set_perm_recursive $MODPATH/system/vendor/lib/soundfx 0 0 0755 0644
+
+  # For files (not in directories taken care of above)
+  # set_perm  <filename>                         <owner> <group> <permission> <contexts> (default: u:object_r:system_file:s0)
+  
+  # set_perm $MODPATH/system/lib/libart.so 0 0 0644
+  # set_perm /data/local/tmp/file.txt 0 0 644
 }
 
-# Function to display error messages
-print_error() {
-    echo "ERROR: $1" >&2
-}
+##########################################################################################
+# MMT Extended Logic - Don't modify anything after this
+##########################################################################################
 
-# Function to check if a file exists
-check_file() {
-    if [ -f "$1" ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Function to update module description based on detection
-update_description() {
-    sed -i "s|^description=.*|description=$1|g" "$MODULE_PROP"
-}
-
-# Check if KSU is detected
-if check_file "/data/adb/ksud"; then
-    print_message "KernelSU Detected. Installing the module..."
-    rm -rf "$KSU_PATH"
-    update_description "[KernelSU Mode] AshLooper module tracks boot loops and disables the module, triggering recovery mode if necessary."
-# Check if Magisk is detected
-elif check_file "/data/adb/magisk/magiskboot"; then
-    print_message "Magisk Detected. Installing the module..."
-    update_description "[Magisk Mode] AshLooper module tracks boot loops and disables the module, triggering recovery mode if necessary."
-    # Check if module directory exists
-    if [ -d "$MODULE_PATH" ]; then
-        rm -rf "$MODULE_PATH"
-        print_message "Module already exists. Removing..."
-    fi
-else
-    print_error "Neither KernelSU nor Magisk detected. Please install the module using a supported root method."
-    exit 1
-fi
-
-# Flashing AshLooper module
-print_message "ACTION: Flashing AshLooper module..."
-
-# Additional messages
-print_message "They want us to suffer... But AshLooper won't let them!"
+SKIPUNZIP=1
+unzip -qjo "$ZIPFILE" 'common/functions.sh' -d $TMPDIR >&2
+. $TMPDIR/functions.sh

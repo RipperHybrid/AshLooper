@@ -1,7 +1,7 @@
 # AshLooper
 
 ## Description:
-AshLooper is a comprehensive Magisk module designed to address boot loop issues caused by problematic modules installed via KernelSU or Magisk on Android devices.
+AshLooper is a comprehensive module designed to address boot loop issues caused by problematic modules installed via KernelSU or Magisk on Android devices.
 
 ### Functionality:
 - **Boot Loop Detection:** AshLooper monitors the boot process and checks for boot loops caused by malfunctioning modules.
