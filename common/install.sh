@@ -1,8 +1,10 @@
 # AshLooper Module Logic - Don't modify anything after this - By Ꭺsʜʙᴏʀɴ 々 (@Ripper_Hybrid)
 
-mka_pfd() {
-cat > "$MODPATH/post-fs-data.sh" << EOF
-# Define paths
+create_post_fs_data_script() {
+    local root_type=$1
+    cat > "$MODPATH/post-fs-data.sh" << EOF
+#!/system/bin/sh
+
 MODULE_PROP="/data/adb/modules/AshLooper/module.prop"
 mdir="/data/adb/modules"
 REBOOT_RECOVERY_CMD="reboot recovery"
@@ -10,7 +12,13 @@ REBOOT_CMD="reboot"
 LOG_FILE="/cache/AshLooper.log"
 PREVIOUS_LOG_FILE="\${LOG_FILE/.log/-Previous-Boot.log}"
 
+ROOT_TYPE="$root_type"
+THRESHOLD=$selected_threshold
+MODE="$selected_mode"
+PROTECTED_MODULES="AshLooper AbootRecovery"
+
 loops=\$(grep "loops=" "\$MODULE_PROP" | cut -d '=' -f 2)
+reboot_triggered=false
 
 log() {
     echo "\$(date '+%d.%m.%y %T'): >[\$1]<" >> "\$LOG_FILE"
@@ -21,18 +29,13 @@ start_run() {
     if [ -f "\$LOG_FILE" ]; then
         mv "\$LOG_FILE" "\$PREVIOUS_LOG_FILE"
     fi
+    log "Ashlooper Process Started"
+    log "Executing post-fs-data.sh"
+    log "Running on \$ROOT_TYPE"
 }
 
-MAGISK_THRESHOLD=$selected_threshold
-MODE="$selected_mode"
-reboot_triggered=false
-
 update_loops_property() {
-    log "Entering update loops property function"
     loops=\$((loops + 1))
-    log "Increment the value of loops"
-
-    log "Updating The Module Prop With New Loop Value"
     sed -i "s/loops=.*/loops=\$loops/" "\$MODULE_PROP" || log "Failed to update loops property"
 }
 
@@ -40,10 +43,12 @@ list_modules() {
     echo "###############" >> "\$LOG_FILE"
     echo ">[Available modules:]< " >> "\$LOG_FILE"
     local count=0
-    for module_folder in /data/adb/modules/*; do
+    for module_folder in \$mdir/*; do
         if [ -d "\$module_folder" ]; then
             module_name=\$(basename "\$module_folder")
-            echo ">[\$((count + 1)). \$module_name]< " >> "\$LOG_FILE"
+            status="[Enabled]"
+            [ -f "\$module_folder/disable" ] && status="[Disabled]"
+            echo ">[\$((count + 1)). \$module_name]< \$status" >> "\$LOG_FILE"
             count=\$((count + 1))
         fi
     done
@@ -51,38 +56,58 @@ list_modules() {
     echo "" >> "\$LOG_FILE"
 }
 
-handle_magisk() {
-    log "Magisk detected. Checking for boot loops..."
-    log "Reading the current loop value (\$loops)"
-    if [ "\$loops" -ge "\$MAGISK_THRESHOLD" ]; then
-        log "Threshold Limit Reached for Magisk."
-        sed -i "s/loops=.*/loops=0/" "\$MODULE_PROP"
-        log "Resetting The Loop Value"
-        
-        echo "" >> "\$LOG_FILE"
-        echo "###########################" >> "\$LOG_FILE"
-        echo ">[Disabling Modules Please Wait.....]<  " >> "\$LOG_FILE"
-        enabled_modules=0
-            for module_folder in /data/adb/modules/*; do
-                if [ "\$module_folder" != "\$mdir/AshLooper" ] && [ "\$module_folder" != "\$mdir/AbootRecovery" ] && [ -d "\$module_folder" ]; then
+is_protected_module() {
+    local module=\$1
+    for protected in \$PROTECTED_MODULES; do
+        if [ "\$module" = "\$protected" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+disable_non_protected_modules() {
+    log "Threshold (\$THRESHOLD) reached for \$ROOT_TYPE. Disabling modules..."
+    
+    echo "" >> "\$LOG_FILE"
+    echo "###########################" >> "\$LOG_FILE"
+    echo ">[Disabling Modules Please Wait.....]<  " >> "\$LOG_FILE"
+    
+    enabled_modules=0
+    for module_folder in \$mdir/*; do
+        if [ -d "\$module_folder" ]; then
+            module_name=\$(basename "\$module_folder")
+            if ! is_protected_module "\$module_name"; then
                 touch "\$module_folder/disable"
-                echo ">[Disabled module: \$(basename "\$module_folder")]<  " >> "\$LOG_FILE"
+                echo ">[Disabled module: \$module_name]<  " >> "\$LOG_FILE"
                 enabled_modules=\$((enabled_modules + 1))
             fi
-        done
-        echo "" >> "\$LOG_FILE"
-        echo ">[Total Disabled: \$enabled_modules Modules]<  " >> "\$LOG_FILE"
-        echo "###########################" >> "\$LOG_FILE"
-        echo "" >> "\$LOG_FILE"
-        
+        fi
+    done
+    
+    echo "" >> "\$LOG_FILE"
+    echo ">[Total Disabled: \$enabled_modules Modules]<  " >> "\$LOG_FILE"
+    echo "###########################" >> "\$LOG_FILE"
+    echo "" >> "\$LOG_FILE"
+    
+    sed -i "s/loops=.*/loops=0/" "\$MODULE_PROP"
+}
+
+handle_boot_loop() {
+    log "Checking boot loop counter: \$loops"
+    
+    if [ "\$loops" -ge "\$THRESHOLD" ]; then
+        disable_non_protected_modules
+        log "Checking Modules Status"
         list_modules
+        
         if [ "\$MODE" = "2" ]; then
-        log "Triggering recovery mode..."
-        reboot_triggered=true
+            log "Triggering recovery reboot"
+            reboot_triggered=true
             \$REBOOT_RECOVERY_CMD
         else
-        log "Triggering normal reboot..."
-        reboot_triggered=true
+            log "Triggering normal reboot"
+            reboot_triggered=true
             \$REBOOT_CMD
         fi
     else
@@ -91,114 +116,10 @@ handle_magisk() {
 }
 
 start_run
-log "Ashlooper Process Started"
-log "Executing post-fs-data.sh"
-handle_magisk
-if ! \$reboot_triggered; then
-   update_loops_property
-fi
-
-EOF
-}
-
-ksu_pfd() {
-cat > "$MODPATH/post-fs-data.sh" << EOF
-# Define paths
-MODULE_PROP="/data/adb/modules/AshLooper/module.prop"
-mdir="/data/adb/modules"
-REBOOT_RECOVERY_CMD="reboot recovery"
-REBOOT_CMD="reboot"
-LOG_FILE="/cache/AshLooper.log"
-PREVIOUS_LOG_FILE="\${LOG_FILE/.log/-Previous-Boot.log}"
-
-loops=\$(grep "loops=" "\$MODULE_PROP" | cut -d '=' -f 2)
-
-log() {
-    echo "\$(date '+%d.%m.%y %T'): >[\$1]<" >> "\$LOG_FILE"
-    echo "" >> "\$LOG_FILE"
-}
-
-start_run() {
-    if [ -f "\$LOG_FILE" ]; then
-        mv "\$LOG_FILE" "\$PREVIOUS_LOG_FILE"
-    fi
-}
-
-KSU_THRESHOLD=$selected_threshold
-MODE="$selected_mode"
-reboot_triggered=false
-
-update_loops_property() {
-    log "Entering update loops property function"
-    loops=\$((loops + 1))
-    log "Increment the value of loops"
-
-    log "Updating The Module Prop With New Loop Value"
-    sed -i "s/loops=.*/loops=\$loops/" "\$MODULE_PROP" || log "Failed to update loops property"
-}
-
-list_modules() {
-    echo "###############" >> "\$LOG_FILE"
-    echo ">[Available modules:]< " >> "\$LOG_FILE"
-    local count=0
-    for module_folder in /data/adb/modules/*; do
-        if [ -d "\$module_folder" ]; then
-            module_name=\$(basename "\$module_folder")
-            echo ">[\$((count + 1)). \$module_name]< " >> "\$LOG_FILE"
-            count=\$((count + 1))
-        fi
-    done
-    echo "###############" >> "\$LOG_FILE"
-    echo "" >> "\$LOG_FILE"
-}
-
-handle_ksu() {
-    log "KernelSU detected. Checking for boot loops..."
-    log "Reading the current loop value (\$loops)"
-    if [ "\$loops" -ge "\$KSU_THRESHOLD" ]; then
-        log "Threshold Limit Reached for KSU."
-        sed -i "s/loops=.*/loops=0/" "\$MODULE_PROP"
-        log "Resetting The Loop Value"
-    
-        echo "" >> "\$LOG_FILE"
-        echo "###########################" >> "\$LOG_FILE"
-        echo ">[Disabling Modules Please Wait.....]<  " >> "\$LOG_FILE"
-        enabled_modules=0
-            for module_folder in /data/adb/modules/*; do
-                if [ "\$module_folder" != "\$mdir/AshLooper" ] && [ "\$module_folder" != "\$mdir/AbootRecovery" ] && [ -d "\$module_folder" ]; then
-                touch "\$module_folder/disable"
-                echo ">[Disabled module: \$(basename "\$module_folder")]<  " >> "\$LOG_FILE"
-                enabled_modules=\$((enabled_modules + 1))
-            fi
-        done
-        echo "" >> "\$LOG_FILE"
-        echo ">[Total Disabled: \$enabled_modules Modules]<  " >> "\$LOG_FILE"
-        echo "###########################" >> "\$LOG_FILE"
-        echo "" >> "\$LOG_FILE"
-    
-        list_modules
-        if [ "\$MODE" = "2" ]; then
-        log "Triggering recovery mode..."
-        reboot_triggered=true
-            \$REBOOT_RECOVERY_CMD
-        else
-        log "Triggering normal reboot..."
-        reboot_triggered=true
-            \$REBOOT_CMD
-        fi
-    else
-        list_modules
-    fi
-}
-
-start_run
-log "Ashlooper Process Started"
-log "Executing post-fs-data.sh"
-handle_ksu
+handle_boot_loop
 if ! \$reboot_triggered; then
     update_loops_property
 fi
-
 EOF
 }
 
@@ -235,12 +156,12 @@ EOF
 }
 
 if [ "$BOOTMODE" ] && [ "$KSU" ]; then
-    method="KernelSu"
+    method="KernelSU"
 elif [ "$BOOTMODE" ] && [ "$MAGISK_VER_CODE" ]; then
     method="Magisk"
 else
-  logger "Neither KernelSU nor Magisk detected. Please install the module using a supported root method."
-  abort
+    logger "Neither KernelSU nor Magisk detected. Please install the module using a supported root method."
+    abort
 fi
 
 MODNAME=$(grep_prop name $TMPDIR/module.prop)
@@ -254,15 +175,12 @@ logger "###########################"
 logger "- Author: $DV"
 logger "- Module: $MODNAME"
 logger "- Version: $MODVER"
-logger "- Brand：$Brand"
-logger "- Device：$Device"
-logger "- Model：$Model"
-logger "- Root：$method"
-if [ "$method" = "KernelSu" ]; then
-    logger "- KernelSu: $KSU_KERNEL_VER_CODE"
-elif [ "$method" = "Magisk" ]; then
-    logger "- Magisk: $MAGISK_VER"
-fi
+logger "- Brand: $Brand"
+logger "- Device: $Device"
+logger "- Model: $Model"
+logger "- Root: $method"
+[ "$method" = "KernelSU" ] && logger "- KernelSU: $KSU_KERNEL_VER_CODE"
+[ "$method" = "Magisk" ] && logger "- Magisk: $MAGISK_VER"
 logger "###########################"
 logger " "
 
@@ -272,100 +190,61 @@ logger "1. Disable Modules"
 logger "2. Disable Modules & Reboot Recovery"
 logger "###########################"
 logger "- Use Volume+ To Choose & Volume- To Switch Option!!!"
-logger " "
+
 selected_mode=""
 for mode in 1 2; do
     logger "   >[$mode]< "
-    if $VKSEL; then
-        selected_mode="$mode"
-        break
-    fi
+    $VKSEL && selected_mode="$mode" && break
 done
 
-if [ -n "$selected_mode" ]; then
-    if [ "$selected_mode" = "1" ]; then
-        logger " "
-        logger "- Selected mode: Disable Module Mode"
-        smode="DM"
-    elif [ "$selected_mode" = "2" ]; then
-        logger " "
-        logger "- Selected mode: Disable & Reboot Recovery Mode"
-        smode="DMR"
-    fi
-else
-    logger "- No mode selected, aborting."
-    abort
-fi
+[ -z "$selected_mode" ] && { logger "- No mode selected, aborting."; abort; }
+
+case "$selected_mode" in
+    1) smode="DM"; logger "- Selected mode: Disable Module Mode" ;;
+    2) smode="DMR"; logger "- Selected mode: Disable & Reboot Recovery Mode" ;;
+esac
+
 logger "###########################"
-logger " "
 
 threshold_list="1 2 3 4 5"
-logger "###########################"
 logger "- Select A Threshold For Loop Count"
-logger " "
+
 selected_threshold=""
 for threshold in $threshold_list; do
     logger "   >[$threshold]< "
-    if $VKSEL; then
-        selected_threshold="$threshold"
-        break
-    fi
+    $VKSEL && selected_threshold="$threshold" && break
 done
 
-if [ -n "$selected_threshold" ]; then
-    logger " "
-    logger "- Selected threshold: $selected_threshold"
-    logger "###########################"
-    if [ "$method" = "KSU" ]; then
-        logger "- Creating Post-fs-data.sh Kindly Wait"
-        sleep 1
-        ksu_pfd "$selected_threshold"
-        logger "- Creating Service.sh Kindly Wait"
-        sleep 1
-        mka_sve
-    elif [ "$method" = "Magisk" ]; then
-        logger "- Creating Post-fs-data.sh Kindly Wait"
-        sleep 1
-        mka_pfd "$selected_threshold"
-        logger "- Creating Service.sh Kindly Wait"
-        sleep 1
-        mka_sve
-    fi
-    logger "- Updating Module Description Kindly Wait"
-    update_description "[$method × $smode Mode] AshLooper module tracks boot loops and disables the module, triggering recovery mode if necessary."
-    sleep 1
-    logger "- Cleaning up"
+[ -z "$selected_threshold" ] && { logger "- No threshold selected, aborting."; abort; }
+
+logger "- Selected threshold: $selected_threshold"
+logger "###########################"
+
+logger "- Creating Post-fs-data.sh Kindly Wait"
+sleep 1
+create_post_fs_data_script "$method"
+
+logger "- Creating Service.sh Kindly Wait"
+sleep 1
+mka_sve
+
+logger "- Updating Module Description Kindly Wait"
+update_description "[$method × $smode Mode] AshLooper module tracks boot loops and disables the module if necessary. Options for recovery or reboot."
+sleep 1
+
+logger "- Cleaning up"
+TARGETS="update.json changelog.md"
+
+for target in $TARGETS; do
+    file_path="$MODPATH/$target"
+    [ ! -e "$file_path" ] && logger "  >[Not found: $target]<  " && continue
     
-    TARGETS="update.json changelog.md"
-
-    for target in $TARGETS; do
-            target_name="$target"
-            file_path="$MODPATH/$target"
-
-        if [ -e "$file_path" ]; then
-            if [ -d "$file_path" ]; then
-                delete_recursive "$file_path"
-                if [ $? -eq 0 ]; then
-                    logger "  >[Removed directory: $target]<  "
-                    sleep 1
-                else
-                    logger "  >[Failed to remove directory: $target]<  "
-                fi
-            else
-                delete "$file_path"
-                if [ $? -eq 0 ]; then
-                    logger "  >[Removed: $target]<  "
-                    sleep 1
-                else
-                    logger "  >[Failed to remove: $target]<  "
-                fi
-            fi
-        else
-            logger "  >[Not found: $target]<  "
-        fi
-    done
-    logger "- Done!"
+    if [ -d "$file_path" ]; then
+        delete_recursive "$file_path" && logger "  >[Removed directory: $target]<  " || logger "  >[Failed to remove directory: $target]<  "
     else
-        logger "- No threshold selected, aborting."
-        abort
-fi
+        delete "$file_path" && logger "  >[Removed: $target]<  " || logger "  >[Failed to remove: $target]<  "
+    fi
+    sleep 1
+done
+
+logger "- Done!"

@@ -1,4 +1,8 @@
-# AshLooper Module Functions - Don't modify anything after this - By Ꭺsʜʙᴏʀɴ 々 (@Ripper_Hybrid)
+##########################################################################################
+#
+# MMT Extended Utility Functions
+#
+##########################################################################################
 
 sysboot=$(getprop sys.boot_completed)
 

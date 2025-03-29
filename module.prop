@@ -1,7 +1,7 @@
 id=AshLooper
 name=AshLooper - Boot Loop Protection
-version=4.0
-versionCode=140
+version=5.0
+versionCode=150
 author=AshBorn(@Ripper_Hybrid)
 loops=0
 description=It looks like you're seeing this message. This means AshLooper has not been installed through Magisk or KSU.

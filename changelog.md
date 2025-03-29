@@ -1,9 +1,15 @@
-## Version 4.0 Changelog
+## Version 5.0 Changelog
 
-### AshLooper Module Script (Version 4.0) Enhancements:
+### AshLooper Module Script (Version 5.0) Critical Fixes:
 
-- **Mode Selection Feature**: Added a new feature allowing users to choose between two modes:
-  - **Disable Modules**: Disables the modules without rebooting into recovery.
-  - **Disable Modules & Reboot Recovery**: Disables the modules and reboots into recovery mode.
-- **Improved Logging**.
-- **Added Module Management Script**: Module Management Helps In Managing Flashed Modules Via Recovery, You Can Activate It By Simply Flashing The Module In Recovery.
+- **Fixed installation issues**:
+  - Now properly installs `post-fs-data.sh` and `service.sh` during flashing
+  - Resolved problems where essential scripts were being skipped
+
+- **Code optimizations**:
+  - Completely restructured and cleaned up messy code
+  - Improved overall script reliability and maintenance
+
+- **Enhanced logging**:
+  - Added more detailed installation logs
+  - Improved error reporting for better troubleshooting
