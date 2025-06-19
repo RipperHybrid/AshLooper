@@ -1,38 +1,45 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Create a report to help us improve bootloop protector
 title: ''
 labels: ''
 assignees: ''
-
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+A clear and concise description of the problem or unexpected behavior.
 
 **To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+Steps to reproduce the issue:
+1. ...
+2. ...
+3. ...
+4. ...
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What did you expect to happen?
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Logs**
+- Attach any relevant logs (especially from `/cache/logger` or other related files).
+- If possible, provide output from recovery or adb.
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+**Device information (please complete the following):**
+ - Device model: [e.g. Pixel 6, OnePlus 8]
+ - Android version: [e.g. 14, 13]
+ - ROM/firmware: [e.g. stock, LineageOS, etc.]
+ - Magisk version: [if applicable]
+ - Kernel: [if applicable]
+ - Bootloop protector version: [e.g. v1.2.0]
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+**Module(s) involved (if relevant)**
+[List any Magisk or kernel modules involved, if any.]
+
+**Recovery environment**
+- Recovery used (e.g. TWRP, OrangeFox, stock): 
+- Can you access recovery or fastboot? [Yes/No]
+
+**Screenshots or Videos**
+If applicable, add screenshots or a short video to help explain the problem.
 
 **Additional context**
-Add any other context about the problem here.
+Add any other context or details that may help us diagnose the issue.

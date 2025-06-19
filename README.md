@@ -1,45 +1,43 @@
 # AshLooper
 
+<img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20KernelSU--Next-blueviolet" alt="Compatible with Magisk, KernelSU, KernelSU-Next">
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="80%" alt="Banner">
-  <br>
-  <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=600&size=18&duration=3000&pause=1000&color=A753F7&vCenter=true&width=450&lines=AshLooper+fixes+boot+loops;Caused+by+malfunctioning+modules;Monitors+boot+process;And+takes+action+fixes+issues+automatically." alt="Typing SVG">
-  </a>
 </div>
 
 ---
 
 ## 📌 Features
 
-- **Boot Loop Detection** – Identifies boot loops and tracks boot attempts.
-- **Threshold-Based Action** – Takes action when the boot count exceeds the threshold.
-- **Power Cycle Awareness** – Retains boot count after power off.
-- **Recovery Mode Customization** – Manual module management when flashed in recovery.
+- **Boot Loop Detection** – Detects repeated failed boots caused by malfunctioning modules.
+- **Smarter Module Disabling** – Only disables newly installed or updated modules that trigger a bootloop; if issues persist, all modules are disabled as a fallback.
+- **Threshold-Based Action** – Automatically takes action if boot attempts exceed your configured threshold.
+- **Persistent Tracking** – Keeps track of boot attempts even after full power-off or battery removal.
+- **Magisk & KernelSU Compatible** – Works with both Magisk and KernelSU for wide support.
 
 ---
 
 ## ⚙️ Modes
 
-- **Disable Modules Mode (DM)** – Disables all modules except AshLooper and allows normal boot.
-- **Disable & Reboot Recovery Mode (DMR)** – Disables modules and reboots into recovery for troubleshooting.
-- **Recovery Flash Mode** – Enables manual module management when flashed in recovery.
+- **Targeted Disable Mode** – Disables only the new or updated module that caused a bootloop.
+- **Fallback Disable All Mode** – If the problem persists, disables all modules except AshLooper.
 
 ---
 
 ## 🛠️ Installation
 
-1. Download and flash **AshLooper** via Magisk or recovery.
-2. Set the desired boot threshold and mode.
-3. Reboot your device.
+1. Download and flash **AshLooper** via Magisk.
+2. Configure your desired boot threshold and mode (see documentation).
+3. Reboot your device and AshLooper will automatically monitor and protect against bootloops.
 
 ---
 
 ## 🔔 Notes
 
-- **DMR mode** is recommended if your device is stuck in a boot loop, as it allows you to access recovery for fixing the issue.
-- Flashing AshLooper in **recovery mode** provides additional customization options for module management.
-- Retains boot attempt count even after a full power-off, ensuring accurate boot loop detection.
+- **DMR mode is recommended only if your device has an advanced recovery (such as TWRP, OrangeFox, etc.) that allows you to fix a bootloop or manually manage files and modules.**
+  If you do not have such a recovery, avoid using DMR mode.
+- Boot attempt tracking is robust and persists even after a complete power-off.
 
 ---
 
@@ -49,14 +47,19 @@ Licensed under the [GPL-3.0 License](LICENSE).
 
 ---
 
-## KernelSU and Magisk Support
+## 💡 Credits
 
-AshLooper works with both KernelSU and Magisk for a wide range of device compatibility.
+- **JSON Processor:** [jq](https://jqlang.github.io/jq/) – v1.7.1, included for fast and reliable JSON parsing
+- **Banner By:** [Adi](https://t.me/adiLohar) – [Banner Channel](https://t.me/WDableuW)
+
+---
 
 ## Disclaimer
 
-Use AshLooper at your own risk. The developer is not responsible for any damage.
+AshLooper is designed to help protect your device from bootloops caused by malfunctioning modules. While every effort has been made to ensure reliability, please use this tool responsibly and always keep backups of important data.
+
+---
 
 ## Support
 
-For support, contact [Ripper Hybrid](https://t.me/Ripper_Hybrid) on Telegram.
+For help or to report an issue, contact [Ripper Hybrid](https://t.me/Ripper_Hybrid) on Telegram.

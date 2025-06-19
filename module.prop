@@ -1,8 +1,12 @@
 id=AshLooper
 name=AshLooper - Boot Loop Protection
-version=5.0
-versionCode=150
+version=6.0
+versionCode=160
 author=AshBorn(@Ripper_Hybrid)
 loops=0
-description=It looks like you're seeing this message. This means AshLooper has not been installed through Magisk or KSU.
+disable=none
+timeout=50
+threshold=none
+description=AshLooper requires Magisk/KernelSU installation - Current installation method not supported
 updateJson=https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/update.json
+banner=https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png
