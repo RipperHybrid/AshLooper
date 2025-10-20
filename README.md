@@ -1,9 +1,28 @@
 # AshLooper
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20KernelSU--Next-blueviolet" alt="Compatible with Magisk, KernelSU, KernelSU-Next">
+<p align="center">
   <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="80%" alt="Banner">
-</div>
+  <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20KernelSU--Next-blueviolet" alt="Compatible with Magisk, KernelSU, KernelSU-Next">
+  <br>
+  
+  <a href="https://github.com/RipperHybrid/AshLooper/releases/latest">
+    <img src="https://img.shields.io/github/v/release/RipperHybrid/AshLooper?label=Latest%20Release&logo=git&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="Latest Release">
+    <img src="https://img.shields.io/github/license/RipperHybrid/AshLooper?label=License&logo=git&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="License">
+  </a>
+  <br>
+  
+  <a href="https://github.com/RipperHybrid/AshLooper">
+    <img src="https://img.shields.io/github/commit-activity/t/RipperHybrid/AshLooper?label=Total%20Commits&logo=git&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="Total Commits">
+  </a>
+  <a href="https://github.com/RipperHybrid/AshLooper/commits/main">
+    <img src="https://img.shields.io/github/last-commit/RipperHybrid/AshLooper?label=Last%20Commit&logo=git&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="Last Commit">
+  </a>
+  <br>
+  
+  <a href="https://github.com/RipperHybrid/AshLooper/releases">
+    <img src="https://img.shields.io/github/downloads/RipperHybrid/AshLooper/total?label=Total%20Downloads&logo=github&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="Total Downloads">
+  </a>
+</p>
 
 ---
 
