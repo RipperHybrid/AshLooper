@@ -3,15 +3,14 @@
 MODULE_PROP="$MODPATH/module.prop"
 mdir="/data/adb/modules"
 LOG_DIR="/cache/looper"
-LOG_FILE="$LOG_DIR/AshLooper.log"
+ASHLOOPER_DIR="/data/adb/ashlooper"
 LOG_HISTORY=10
-TMP_FILE="$MODPATH/tmp_modules.json"
-MODULE_LIST="$MODPATH/module.json"
+TMP_FILE="$ASHLOOPER_DIR/tmp_modules.json"
+MODULE_LIST="$ASHLOOPER_DIR/module.json"
 JQ="$MODPATH/jq/jq"
 boot_completed=0
 
 chooseport() {
-  # Original idea by chainfire and ianmacd @xda-developers
   [ "$1" ] && local delay=$1 || local delay=10
   local error=false 
   while true; do
@@ -49,18 +48,36 @@ update_description() {
     sed -i "s|^description=.*|description=$1|g" "$MODPATH/module.prop"
 }
 
-start_run() {
+rotate_logs() {
     mkdir -p "$LOG_DIR"
-    i=$((LOG_HISTORY - 1))
-    while [ $i -ge 1 ]; do
-        if [ -f "$LOG_DIR/AshLooper-$i.log" ]; then
-            mv "$LOG_DIR/AshLooper-$i.log" "$LOG_DIR/AshLooper-$((i+1)).log"
+    
+    current_date=$(date '+%Y-%m-%d')
+    current_log="$LOG_DIR/AshLooperSession-$current_date.log"
+    
+    if [ ! -f "$current_log" ]; then
+        all_logs=$(ls -1 "$LOG_DIR"/AshLooper*.log 2>/dev/null | wc -l)
+        
+        if [ "$all_logs" -ge $LOG_HISTORY ]; then
+            oldest_log=$(ls -1tr "$LOG_DIR"/AshLooper*.log 2>/dev/null | head -n 1)
+            if [ -n "$oldest_log" ]; then
+                rm -f "$oldest_log"
+            fi
         fi
-        i=$((i - 1))
-    done
-    [ -f "$LOG_FILE" ] && mv "$LOG_FILE" "$LOG_DIR/AshLooper-1.log"
+    fi
+}
 
-    log "Ashlooper Process Started"
+set_log_file() {
+    current_date=$(date '+%Y-%m-%d')
+    LOG_FILE="$LOG_DIR/AshLooperSession-$current_date.log"
+}
+
+start_run() {
+    mkdir -p "$ASHLOOPER_DIR"
+    rotate_logs
+    set_log_file
+
+    log "◆◆◆◆◆◆◆ NEW BOOT ◆◆◆◆◆◆◆◆"
+    log "AshLooper Process Started"
     log "Executing post-fs-data.sh"
     log "Running on $ROOT_TYPE"
 }

@@ -13,6 +13,7 @@ MODPATH="\${0%/*}"
 ROOT_TYPE="$root_type"
 MODE="$selected_mode"
 
+set_log_file
 start_run
 create_mod_list
 handle_boot_loop
@@ -32,6 +33,7 @@ timeout=$(get_prop "timeout")
 disable_mode=$(get_prop "disable")
 threshold=$(get_prop "threshold")
 
+set_log_file
 log "Executing Service.sh"
 log "Checking if the device is completely booted..."
 
@@ -80,6 +82,7 @@ fi
 modify_prop "loops" "0"
 modify_prop "disable" "none"
 log "Resetting loop counter and protection mode."
+log "######## THE END ##########"
 EOF
 }
 

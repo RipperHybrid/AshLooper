@@ -1,11 +1,11 @@
 id=AshLooper
 name=AshLooper - Boot Loop Protection
-version=6.0
-versionCode=160
+version=7.0
+versionCode=170
 author=AshBorn(@Ripper_Hybrid)
 loops=0
 disable=none
-timeout=50
+timeout=40
 threshold=none
 description=AshLooper requires Magisk/KernelSU installation - Current installation method not supported
 updateJson=https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/update.json

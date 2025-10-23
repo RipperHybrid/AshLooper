@@ -1,24 +1,20 @@
-## Version 6.0 Changelog
+## Version 7.0 Changelog
 
-### AshLooper Module Script (Version 6.0) Critical Fixes:
+### AshLooper Module Script (Version 7.0) Normal Fixes:
 
-- **Complete file structure overhaul:**
-  - Simplified the module layout for easier maintenance.
-  - Moved all script logic into `func.sh`.
-  - Added a standalone `jq` binary for better and faster JSON handling.
-  - Removed legacy folders (`common`, `addon`, etc.) and merged their functionality.
+### New Features
+- **Complete WebUI Interface** - Web-based management accessible via browser
+- **Real-time Log Viewer** with search and filtering capabilities  
+- **Dark/Light Theme System** with persistent preferences
+- **Interactive Settings Panel** for module configuration
+- **One-click File Operations** - save to downloads and copy to clipboard
 
-- **Smarter bootloop protection:**
-  - No longer disables all modules on the first bootloop.
-  - If a new or updated module causes a bootloop, only that specific module is disabled.
-  - If the device still fails to boot after disabling the changed module, all modules are disabled as a fallback (legacy behavior).
+### Technical Improvements
+- **Date-based Log Rotation** with automatic cleanup
+- **Persistent Storage** in `/data/adb/ashlooper`
+- **Enhanced User Experience** with responsive design and animations
+- **Color-coded Log Messages** for better readability
 
-- **General improvements:**
-  - Cleaned up and optimized all scripts.
-  - Improved reliability and maintainability.
-  - Updated documentation and logs for better clarity.
-
----
-
-**Summary:**  
-This update brings a modernized, cleaner structure and much smarter bootloop recovery—making troubleshooting safer and more precise than ever.
+### Benefits
+- Real-time module configuration changes
+- Modern, user-friendly interface for easier management
