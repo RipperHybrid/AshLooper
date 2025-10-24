@@ -678,6 +678,177 @@ body {
     font-weight: 600;
 }
 
+
+.boot-header {
+    background: linear-gradient(135deg, var(--success), #0077b6);
+    color: white;
+    padding: 12px 16px;
+    margin: 16px 0;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9em;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 166, 80, 0.3);
+}
+
+.boot-footer {
+    background: linear-gradient(135deg, var(--warning), #e67e22);
+    color: white;
+    padding: 12px 16px;
+    margin: 16px 0;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9em;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(244, 162, 97, 0.3);
+}
+
+.sessions-modal {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 12px;
+    padding: 24px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    animation: scaleIn 0.3s ease-out forwards;
+    border: 1px solid var(--border);
+}
+
+.sessions-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border);
+}
+
+.sessions-modal-title {
+    margin: 0;
+    color: var(--accent);
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.sessions-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.sessions-modal-close:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.sessions-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: default;
+    transition: all 0.3s ease;
+}
+
+.session-item:hover {
+    background: var(--bg-tertiary);
+    transform: translateX(0);
+    border-color: var(--border);
+}
+
+.session-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.session-time {
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+.session-lines {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+.session-select-btn {
+    background: var(--accent);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    margin-left: 10px;
+}
+
+.session-select-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.session-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85em;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: 44px;
+    min-width: 100px;
+}
+
+.session-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
 .settings-modal-close {
     background: none;
     border: none;

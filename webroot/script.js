@@ -8,6 +8,8 @@ class AshLooperWebUI {
         this.originalLines = [];
         this.modulePropPath = '/data/adb/modules/AshLooper/module.prop';
         this.moduleInfo = {};
+        this.bootSessions = [];
+        this.currentSessionIndex = -1;
         this.init();
     }
 
@@ -55,7 +57,7 @@ class AshLooperWebUI {
         searchInput.addEventListener('input', (e) => {
             this.searchQuery = e.target.value.toLowerCase();
             if (this.currentLogFile) {
-                this.displayLogContent(this.originalLines);
+                this.displayLogContent(this.getCurrentSessionLines());
             }
         });
         terminalControls.insertBefore(searchInput, terminalControls.firstChild);
@@ -83,6 +85,14 @@ class AshLooperWebUI {
         clearBtn.style.display = 'none';
         clearBtn.addEventListener('click', () => this.clearViewer());
         terminalControls.appendChild(clearBtn);
+
+        const sessionBtn = document.createElement('button');
+        sessionBtn.innerHTML = '📋 Sessions';
+        sessionBtn.className = 'control-btn session-btn';
+        sessionBtn.title = 'Select Boot Session';
+        sessionBtn.style.display = 'none';
+        sessionBtn.addEventListener('click', () => this.showSessionSelector());
+        terminalControls.appendChild(sessionBtn);
 
         const settingsBtn = document.createElement('button');
         settingsBtn.innerHTML = AshLooperIcons.getSettingsIcon();
@@ -494,8 +504,16 @@ class AshLooperWebUI {
         try {
             const content = await this.ksuExec(`cat "${this.logDirectory}${filename}"`);
             this.originalLines = content.split('\n').filter(line => line.trim() !== '');
-            this.displayLogContent(this.originalLines);
-            this.updateConsole(`Loaded ${this.originalLines.length} lines`);
+            this.parseBootSessions();
+            
+            if (this.bootSessions.length > 1) {
+                this.showSessionSelector();
+            } else {
+                this.currentSessionIndex = 0;
+                this.displayLogContent(this.getCurrentSessionLines());
+            }
+            
+            this.updateConsole(`Loaded ${this.originalLines.length} lines, ${this.bootSessions.length} boot sessions`);
         } catch (error) {
             this.updateConsole(`Error reading file: ${error.message}`, 'error');
             this.originalLines = [`Error reading file: ${error.message}`];
@@ -505,12 +523,184 @@ class AshLooperWebUI {
         }
     }
 
+    parseBootSessions() {
+        this.bootSessions = [];
+        let currentSession = [];
+        let inSession = false;
+
+        this.originalLines.forEach((line, index) => {
+            if (line.includes('◆◆◆◆◆◆◆ NEW BOOT ◆◆◆◆◆◆◆◆')) {
+                if (inSession && currentSession.length > 0) {
+                    this.bootSessions.push([...currentSession]);
+                }
+                currentSession = [line];
+                inSession = true;
+            } else if (line.includes('######## THE END ##########')) {
+                if (inSession) {
+                    currentSession.push(line);
+                    this.bootSessions.push([...currentSession]);
+                    currentSession = [];
+                    inSession = false;
+                }
+            } else if (inSession) {
+                currentSession.push(line);
+            }
+        });
+
+        if (currentSession.length > 0) {
+            this.bootSessions.push(currentSession);
+        }
+
+        if (this.bootSessions.length === 0 && this.originalLines.length > 0) {
+            this.bootSessions.push([...this.originalLines]);
+        }
+    }
+
+    showSessionSelector() {
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'modal-overlay';
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'sessions-modal';
+
+        const header = document.createElement('div');
+        header.className = 'sessions-modal-header';
+
+        const title = document.createElement('h2');
+        title.className = 'sessions-modal-title';
+        title.textContent = 'Select Boot Session';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'sessions-modal-close';
+        closeBtn.innerHTML = AshLooperIcons.getCloseIcon();
+        closeBtn.addEventListener('click', () => {
+            modalOverlay.style.animation = 'fadeOut 0.3s ease-out forwards';
+            modalContent.style.animation = 'scaleOut 0.3s ease-out forwards';
+            setTimeout(() => {
+                if (modalOverlay.parentNode) {
+                    modalOverlay.parentNode.removeChild(modalOverlay);
+                }
+            }, 300);
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        const sessionsContent = document.createElement('div');
+        sessionsContent.className = 'sessions-content';
+
+        const sessionsList = document.createElement('div');
+        sessionsList.className = 'sessions-list';
+
+        const allSessionsItem = document.createElement('div');
+        allSessionsItem.className = 'session-item';
+        allSessionsItem.innerHTML = `
+            <div class="session-info">
+                <div class="session-time">📁 All Sessions</div>
+                <div class="session-lines">${this.originalLines.length} lines</div>
+            </div>
+            <div class="session-select-btn">Select</div>
+        `;
+        
+        allSessionsItem.addEventListener('click', (e) => {
+            if (e.target.classList.contains('session-select-btn')) {
+                this.currentSessionIndex = -1;
+                this.displayLogContent(this.getCurrentSessionLines());
+                
+                modalOverlay.style.animation = 'fadeOut 0.3s ease-out forwards';
+                modalContent.style.animation = 'scaleOut 0.3s ease-out forwards';
+                setTimeout(() => {
+                    if (modalOverlay.parentNode) {
+                        modalOverlay.parentNode.removeChild(modalOverlay);
+                    }
+                }, 300);
+            }
+        });
+        
+        sessionsList.appendChild(allSessionsItem);
+
+        this.bootSessions.forEach((session, index) => {
+            const sessionItem = document.createElement('div');
+            sessionItem.className = 'session-item';
+            
+            const firstLine = session[0] || '';
+            const parts = firstLine.split(' ');
+            const date = parts[0] || 'Unknown';
+            const time = parts[1] ? parts[1].replace(':', '') : 'Unknown';
+            const displayTime = parts[1] || 'Unknown';
+            
+            sessionItem.innerHTML = `
+                <div class="session-info">
+                    <div class="session-time">🔄 ${date} ${displayTime}</div>
+                    <div class="session-lines">${session.length} lines</div>
+                </div>
+                <div class="session-select-btn">Select</div>
+            `;
+            
+            sessionItem.addEventListener('click', (e) => {
+                if (e.target.classList.contains('session-select-btn')) {
+                    this.currentSessionIndex = index;
+                    this.displayLogContent(this.getCurrentSessionLines());
+                    
+                    modalOverlay.style.animation = 'fadeOut 0.3s ease-out forwards';
+                    modalContent.style.animation = 'scaleOut 0.3s ease-out forwards';
+                    setTimeout(() => {
+                        if (modalOverlay.parentNode) {
+                            modalOverlay.parentNode.removeChild(modalOverlay);
+                        }
+                    }, 300);
+                }
+            });
+            
+            sessionsList.appendChild(sessionItem);
+        });
+
+        sessionsContent.appendChild(sessionsList);
+        modalContent.appendChild(header);
+        modalContent.appendChild(sessionsContent);
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                closeBtn.click();
+            }
+        });
+    }
+
+    getCurrentSessionLines() {
+        if (this.currentSessionIndex === -1) {
+            return this.originalLines;
+        }
+        return this.bootSessions[this.currentSessionIndex] || [];
+    }
+
+    getCurrentSessionTimestamp() {
+        if (this.currentSessionIndex === -1) {
+            return null;
+        }
+        
+        const session = this.bootSessions[this.currentSessionIndex];
+        if (session && session.length > 0) {
+            const firstLine = session[0];
+            const parts = firstLine.split(' ');
+            const date = parts[0] || '';
+            const time = parts[1] ? parts[1].replace(':', '') : '';
+            
+            if (date && time) {
+                return `${date.replace(/\./g, '-')}-${time}`;
+            }
+        }
+        return null;
+    }
+
     updateSelectedFile() {
         const fileNameElement = document.getElementById('selectedFileName');
         const searchInput = document.querySelector('.search-input');
         const saveBtn = document.querySelector('.save-btn');
         const copyBtn = document.querySelector('.copy-btn');
         const clearBtn = document.querySelector('.clear-btn');
+        const sessionBtn = document.querySelector('.session-btn');
 
         if (this.currentLogFile) {
             fileNameElement.textContent = this.currentLogFile;
@@ -518,12 +708,14 @@ class AshLooperWebUI {
             saveBtn.style.display = 'flex';
             copyBtn.style.display = 'flex';
             clearBtn.style.display = 'flex';
+            sessionBtn.style.display = 'flex';
         } else {
             fileNameElement.textContent = '';
             searchInput.style.display = 'none';
             saveBtn.style.display = 'none';
             copyBtn.style.display = 'none';
             clearBtn.style.display = 'none';
+            sessionBtn.style.display = 'none';
         }
     }
 
@@ -540,9 +732,25 @@ class AshLooperWebUI {
             ? lines.filter(line => line.toLowerCase().includes(this.searchQuery))
             : lines;
 
-        filteredLines.forEach(line => {
+        filteredLines.forEach((line, index) => {
             const lineElement = document.createElement('div');
             lineElement.className = 'terminal-line';
+
+            if (line.includes('◆◆◆◆◆◆◆ NEW BOOT ◆◆◆◆◆◆◆◆')) {
+                const bootHeader = document.createElement('div');
+                bootHeader.className = 'boot-header';
+                bootHeader.innerHTML = '🔄 NEW BOOT SESSION STARTED';
+                terminalOutput.appendChild(bootHeader);
+                return;
+            }
+
+            if (line.includes('######## THE END ##########')) {
+                const bootFooter = document.createElement('div');
+                bootFooter.className = 'boot-footer';
+                bootFooter.innerHTML = '✅ BOOT SESSION COMPLETED';
+                terminalOutput.appendChild(bootFooter);
+                return;
+            }
 
             if (line.includes('ERROR') || line.includes('FAILED')) {
                 lineElement.classList.add('error');
@@ -568,11 +776,36 @@ class AshLooperWebUI {
 
         this.showLoadingSpinner(true);
         try {
-            this.updateConsole(`Saving to Downloads...`);
-            const source = `${this.logDirectory}${this.currentLogFile}`;
-            const dest = `/storage/emulated/0/Download/${this.currentLogFile}`;
-            await this.ksuExec(`cp "${source}" "${dest}"`);
-            this.updateConsole(`Saved to /storage/emulated/0/Download/`);
+            let destFilename;
+            
+            if (this.currentSessionIndex === -1) {
+                destFilename = this.currentLogFile;
+            } else {
+                const sessionTimestamp = this.getCurrentSessionTimestamp();
+                if (sessionTimestamp) {
+                    destFilename = `AshLooperSession-${sessionTimestamp}.log`;
+                } else {
+                    destFilename = `AshLooperSession-${Date.now()}.log`;
+                }
+            }
+
+            this.updateConsole(`Saving to Downloads as ${destFilename}...`);
+            
+            if (this.currentSessionIndex === -1) {
+                const source = `${this.logDirectory}${this.currentLogFile}`;
+                const dest = `/storage/emulated/0/Download/${destFilename}`;
+                await this.ksuExec(`cp "${source}" "${dest}"`);
+            } else {
+                const sessionContent = this.getCurrentSessionLines().join('\n');
+                const tempPath = `/data/local/tmp/${destFilename}`;
+                const dest = `/storage/emulated/0/Download/${destFilename}`;
+                
+                await this.ksuExec(`echo "${sessionContent}" > "${tempPath}"`);
+                await this.ksuExec(`cp "${tempPath}" "${dest}"`);
+                await this.ksuExec(`rm "${tempPath}"`);
+            }
+            
+            this.updateConsole(`Saved to /storage/emulated/0/Download/${destFilename}`);
         } catch (error) {
             this.updateConsole(`Save failed: ${error.message}`, 'error');
         } finally {
@@ -625,6 +858,8 @@ class AshLooperWebUI {
         document.querySelector('.search-input').value = '';
         this.originalLines = [];
         this.currentLogFile = null;
+        this.bootSessions = [];
+        this.currentSessionIndex = -1;
         this.updateSelectedFile();
         this.updateConsole('Terminal cleared');
     }

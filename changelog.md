@@ -1,20 +1,13 @@
-## Version 7.0 Changelog
+## Version 8.0 Changelog
 
-### AshLooper Module Script (Version 7.0) Normal Fixes:
-
-### New Features
-- **Complete WebUI Interface** - Web-based management accessible via browser
-- **Real-time Log Viewer** with search and filtering capabilities  
-- **Dark/Light Theme System** with persistent preferences
-- **Interactive Settings Panel** for module configuration
-- **One-click File Operations** - save to downloads and copy to clipboard
+### AshLooper Module Script (Version 8.0) Normal Fixes:
 
 ### Technical Improvements
-- **Date-based Log Rotation** with automatic cleanup
-- **Persistent Storage** in `/data/adb/ashlooper`
-- **Enhanced User Experience** with responsive design and animations
-- **Color-coded Log Messages** for better readability
-
-### Benefits
-- Real-time module configuration changes
-- Modern, user-friendly interface for easier management
+- Add boot session parsing and navigation in WebUI
+- Implement detailed module change detection (ADDED/UPDATED/STATUS/REMOVED)
+- Enhance logging with session headers and visual separators
+- Improve timeout and threshold validation in settings
+- Add session-specific log saving functionality
+- Optimize module comparison with comprehensive JSON tracking
+- Update CSS with session visualization elements
+- Refactor service.sh for better boot completion handling

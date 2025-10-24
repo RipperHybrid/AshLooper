@@ -72,6 +72,45 @@ if [ -f "$TMP_FILE" ]; then
     if [ -d "$mdir" ]; then
         log "Saving new module list before updating history."
     fi
+    
+    if [ -f "$MODULE_LIST" ]; then
+        changed_modules=$(
+            "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
+              ($old[0] | map({key: (.id + "|" + .folder), value: .}) | from_entries) as $oldmap |
+              ($new[0] | map({key: (.id + "|" + .folder), value: .}) | from_entries) as $newmap |
+              ($newmap | to_entries[] | .key as $key | .value as $n |
+              ($oldmap[$key] // null) as $o |
+              if $o == null then
+                "ADDED: \($n.id) version:\($n.version) (\($n.status))"
+              elif $n.version != $o.version or $n.versionCode != $o.versionCode then
+                "UPDATED: \($n.id) version:\($o.version)->\($n.version) \($o.status)->\($n.status)"
+              elif $n.status != $o.status then
+                "STATUS: \($n.id) \($o.status)->\($n.status)"
+              else
+                empty
+              end),
+              ($oldmap | to_entries[] | .key as $key | .value as $o |
+              ($newmap[$key] // null) as $n |
+              if $n == null then
+                "REMOVED: \($o.id) version:\($o.version) (\($o.status))"
+              else
+                empty
+              end)
+            ' 2>/dev/null
+        )
+        
+        if [ -n "$changed_modules" ]; then
+            log "Module changes detected:"
+            printf '%s\n' "$changed_modules" | while IFS= read -r change; do
+                log "$change"
+            done
+        else
+            log "No module changes detected"
+        fi
+    else
+        log "No previous module list found for comparison"
+    fi
+    
     if mv -f "$TMP_FILE" "$MODULE_LIST"; then
         log "Module version history updated"
     else
@@ -164,24 +203,6 @@ update_description "[$method · $smode · $selected_threshold boots] AshLooper: 
 sleep 1
 
 [ -f "$JQ" ] && chmod 755 "$JQ"
-
-ui_print "- Cleaning up extra files..."
-TARGETS="update.json changelog.md"
-for target in $TARGETS; do
-    file_path="$MODPATH/$target"
-    [ ! -e "$file_path" ] && ui_print "  >[Not found: $target]<  " && continue
-
-    if [ -d "$file_path" ]; then
-        delete_recursive "$file_path" && \
-        ui_print "  >[Removed directory: $target]<  " || \
-        ui_print "  >[Failed to remove directory: $target]<  "
-    else
-        delete "$file_path" && \
-        ui_print "  >[Removed: $target]<  " || \
-        ui_print "  >[Failed to remove: $target]<  "
-    fi
-    sleep 1
-done
 
 ui_print "###########################"
 ui_print "#    Module Setup Done    #"
