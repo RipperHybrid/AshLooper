@@ -1,7 +1,7 @@
 id=AshLooper
 name=AshLooper - Boot Loop Protection
-version=8.0
-versionCode=180
+version=8.1
+versionCode=181
 author=AshBorn(@Ripper_Hybrid)
 loops=0
 disable=none

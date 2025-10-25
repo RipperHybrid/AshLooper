@@ -1,13 +1,10 @@
-## Version 8.0 Changelog
+## Version 8.1 Changelog
 
-### AshLooper Module Script (Version 8.0) Normal Fixes:
+### AshLooper Module Script (Version 8.1) Normal Fixes:
 
 ### Technical Improvements
-- Add boot session parsing and navigation in WebUI
-- Implement detailed module change detection (ADDED/UPDATED/STATUS/REMOVED)
-- Enhance logging with session headers and visual separators
-- Improve timeout and threshold validation in settings
-- Add session-specific log saving functionality
-- Optimize module comparison with comprehensive JSON tracking
-- Update CSS with session visualization elements
-- Refactor service.sh for better boot completion handling
+- Add updateSaveButtonState() method to validate both timeout and threshold
+- Disable save button immediately when invalid timeout is entered
+- Remove interval polling in favor of real-time validation
+- Ensure timeout follows same validation pattern as threshold (1-10 range)
+- Prevent saving when timeout decreases more than 10 seconds from current value

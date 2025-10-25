@@ -165,34 +165,50 @@ class AshLooperWebUI {
         settingsContent.className = 'settings-content';
 
         const currentTimeout = parseInt(this.moduleInfo.timeout) || 29;
+        const currentThreshold = parseInt(this.moduleInfo.threshold) || 3;
+        
         const warningDiv = document.createElement('div');
         warningDiv.className = 'settings-warning';
         warningDiv.innerHTML = `
             <div class="warning-icon">⚠️</div>
             <div class="warning-text">
-                <strong>Important:</strong> Timeout can only be decreased by maximum 10 seconds from current value.
-                Current timeout: <strong>${currentTimeout} seconds</strong>
+                <strong>Important Settings Limits:</strong><br>
+                • Timeout: Can only decrease by max 10 seconds (current: ${currentTimeout}s)<br>
+                • Threshold: Must be between 1-10 (current: ${currentThreshold})
             </div>
         `;
         settingsContent.appendChild(warningDiv);
 
         const infoFields = [
-            { key: 'version', label: 'Module Version', editable: false },
+            { 
+                key: 'version', 
+                label: 'Module Version', 
+                editable: false 
+            },
             { 
                 key: 'timeout', 
                 label: 'Timeout (seconds)', 
                 editable: true,
-                description: `Can decrease max 10 seconds from current value (${currentTimeout})`
+                type: 'number',
+                min: currentTimeout - 10,
+                max: 300,
+                step: 1,
+                description: `Range: ${currentTimeout - 10} - 300 seconds`
             },
             { 
                 key: 'threshold', 
                 label: 'Threshold', 
                 editable: true,
-                description: 'Number of boot loops before protection activates'
+                type: 'number',
+                min: 1,
+                max: 10,
+                step: 1,
+                description: 'Range: 1-10 (number of boot loops before protection activates)'
             }
         ];
 
         const pendingChanges = {};
+        const inputElements = {};
 
         infoFields.forEach(field => {
             if (this.moduleInfo[field.key]) {
@@ -217,23 +233,45 @@ class AshLooperWebUI {
                     inputContainer.className = 'settings-input-container';
                     
                     const input = document.createElement('input');
-                    input.type = 'number';
+                    input.type = field.type || 'text';
                     input.className = 'settings-input';
                     input.value = this.moduleInfo[field.key];
                     
-                    if (field.key === 'timeout') {
-                        input.min = currentTimeout - 10;
-                        input.max = 300;
-                    } else if (field.key === 'threshold') {
-                        input.min = 1;
-                        input.max = 10;
+                    if (field.min !== undefined) input.min = field.min;
+                    if (field.max !== undefined) input.max = field.max;
+                    if (field.step !== undefined) input.step = field.step;
+                    
+                    if (field.type === 'number') {
+                        input.required = true;
                     }
                     
+                    inputElements[field.key] = input;
+                    
+                    const errorElement = document.createElement('div');
+                    errorElement.className = 'input-error';
+                    errorElement.id = `${field.key}-error`;
+                    
                     input.addEventListener('input', (e) => {
-                        pendingChanges[field.key] = e.target.value;
+                        const value = e.target.value;
+                        const isValid = this.validateInput(field.key, value, currentTimeout);
+                        
+                        if (isValid) {
+                            pendingChanges[field.key] = value;
+                            errorElement.classList.remove('show');
+                            e.target.setCustomValidity('');
+                        } else {
+                            const errorMessage = this.getErrorMessage(field.key, value, currentTimeout);
+                            errorElement.textContent = errorMessage;
+                            errorElement.classList.add('show');
+                            e.target.setCustomValidity(errorMessage);
+                            delete pendingChanges[field.key];
+                        }
+                        
+                        this.updateSaveButtonState(pendingChanges, currentTimeout, saveBtn);
                     });
                     
                     inputContainer.appendChild(input);
+                    inputContainer.appendChild(errorElement);
                     valueDiv.appendChild(inputContainer);
                 } else {
                     valueDiv.className = 'settings-value';
@@ -249,9 +287,15 @@ class AshLooperWebUI {
         const saveBtn = document.createElement('button');
         saveBtn.className = 'settings-save-btn';
         saveBtn.textContent = 'Save Changes';
+        saveBtn.disabled = true;
+
         saveBtn.addEventListener('click', () => {
-            this.saveSettingsChanges(pendingChanges, currentTimeout, modalOverlay);
+            if (!saveBtn.disabled) {
+                this.saveSettingsChanges(pendingChanges, currentTimeout, modalOverlay);
+            }
         });
+
+        this.updateSaveButtonState(pendingChanges, currentTimeout, saveBtn);
 
         settingsContent.appendChild(saveBtn);
         modalContent.appendChild(header);
@@ -266,7 +310,84 @@ class AshLooperWebUI {
         });
     }
 
+    updateSaveButtonState(pendingChanges, currentTimeout, saveBtn) {
+        const hasChanges = Object.keys(pendingChanges).length > 0;
+        
+        if (!hasChanges) {
+            saveBtn.disabled = true;
+            return;
+        }
+
+        const allValid = Object.keys(pendingChanges).every(key => 
+            this.validateInput(key, pendingChanges[key], currentTimeout)
+        );
+        
+        saveBtn.disabled = !allValid;
+    }
+
+    validateInput(key, value, currentTimeout) {
+        const numValue = parseInt(value);
+        
+        if (isNaN(numValue)) {
+            return false;
+        }
+
+        switch (key) {
+            case 'timeout':
+                const minTimeout = currentTimeout - 10;
+                const maxTimeout = 300;
+                return numValue >= minTimeout && numValue <= maxTimeout;
+                
+            case 'threshold':
+                return numValue >= 1 && numValue <= 10;
+                
+            default:
+                return true;
+        }
+    }
+
+    getErrorMessage(key, value, currentTimeout) {
+        const numValue = parseInt(value);
+        
+        if (isNaN(numValue)) {
+            return 'Please enter a valid number';
+        }
+
+        switch (key) {
+            case 'timeout':
+                const minTimeout = currentTimeout - 10;
+                const maxTimeout = 300;
+                if (numValue < minTimeout) {
+                    return `Timeout cannot be less than ${minTimeout} seconds`;
+                }
+                if (numValue > maxTimeout) {
+                    return `Timeout cannot exceed ${maxTimeout} seconds`;
+                }
+                break;
+                
+            case 'threshold':
+                if (numValue < 1) {
+                    return 'Threshold cannot be less than 1';
+                }
+                if (numValue > 10) {
+                    return 'Threshold cannot exceed 10';
+                }
+                break;
+        }
+        
+        return 'Invalid value';
+    }
+
     saveSettingsChanges(pendingChanges, currentTimeout, settingsModal) {
+        const invalidChanges = Object.keys(pendingChanges).filter(key => 
+            !this.validateInput(key, pendingChanges[key], currentTimeout)
+        );
+
+        if (invalidChanges.length > 0) {
+            this.updateConsole('Invalid settings detected', 'error');
+            return;
+        }
+
         if (pendingChanges.timeout) {
             const newTimeout = parseInt(pendingChanges.timeout);
             const maxDecrease = currentTimeout - 10;

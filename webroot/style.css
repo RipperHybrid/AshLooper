@@ -1200,3 +1200,23 @@ body {
         width: 100%;
     }
 }
+
+.settings-input:invalid {
+    border-color: var(--error);
+    box-shadow: 0 0 8px rgba(230, 57, 70, 0.3);
+}
+
+.settings-input:valid {
+    border-color: var(--success);
+}
+
+.input-error {
+    color: var(--error);
+    font-size: 0.75em;
+    margin-top: 4px;
+    display: none;
+}
+
+.input-error.show {
+    display: block;
+}
