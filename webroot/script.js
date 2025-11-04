@@ -19,7 +19,7 @@ class AshLooperWebUI {
         this.loadLogFiles();
         this.loadModuleInfo();
         this.setupRefreshButton();
-        this.updateConsole('AshLooper WebUI initialized');
+        this.updateConsole('AshReXcue WebUI initialized');
         this.updateConsole('Monitoring For Loops...');
     }
 
@@ -143,7 +143,7 @@ class AshLooperWebUI {
 
         const title = document.createElement('h2');
         title.className = 'settings-modal-title';
-        title.textContent = 'AshLooper Settings';
+        title.textContent = 'AshReXcue Settings';
 
         const closeBtn = document.createElement('button');
         closeBtn.className = 'settings-modal-close';
@@ -577,7 +577,7 @@ class AshLooperWebUI {
         try {
             const result = await this.ksuExec(`ls -1 "${this.logDirectory}"`);
             this.logFiles = result.split('\n')
-                .filter(file => file.trim() && file.includes('AshLooper'))
+                .filter(file => file.trim() && file.includes('AshReXcue'))
                 .sort();
             this.renderFileList();
             this.updateConsole('Log files loaded');
@@ -904,9 +904,9 @@ class AshLooperWebUI {
             } else {
                 const sessionTimestamp = this.getCurrentSessionTimestamp();
                 if (sessionTimestamp) {
-                    destFilename = `AshLooperSession-${sessionTimestamp}.log`;
+                    destFilename = `AshReXcueSession-${sessionTimestamp}.log`;
                 } else {
-                    destFilename = `AshLooperSession-${Date.now()}.log`;
+                    destFilename = `AshReXcueSession-${Date.now()}.log`;
                 }
             }
 
@@ -972,7 +972,7 @@ class AshLooperWebUI {
         
         document.getElementById('terminalOutput').innerHTML = 
             '<div class="welcome-message">' +
-            '<div>AshLooper WebUI V1.0</div>' +
+            '<div>AshReXcue WebUI V1.0</div>' +
             '<div>Select a log file to view contents</div>' +
             '</div>';
         this.searchQuery = '';

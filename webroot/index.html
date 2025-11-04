@@ -10,28 +10,27 @@
     <div class="app">
         <header class="header">
             <div class="header-left">
-                <h1>AshLooper</h1>
-                <span class="subtitle">Bootloop Protection</span>
+                <h1 id="logoContainer"></h1>
+                <span class="subtitle">Bootloop Protector</span>
             </div>
             <div class="header-right">
-                <button id="themeToggle" class="theme-btn" title="Toggle Theme"></button>
+                <button type="button" id="themeToggle" class="theme-btn" title="Toggle Theme" aria-label="Toggle theme"></button>
             </div>
         </header>
 
         <main class="main">
             <div class="terminal-container">
                 <div class="terminal-header">
-                    <button id="fileSelectBtn" class="file-select-btn">
+                    <button type="button" id="fileSelectBtn" class="file-select-btn">
                         <span class="btn-text">Select Log File</span>
                         <span id="selectedFileName" class="file-name"></span>
                     </button>
-                    <div class="terminal-controls">
-                    </div>
+                    <div class="terminal-controls"></div>
                 </div>
-                <div class="terminal" id="terminal">
+                <div class="terminal" id="terminal" role="log" aria-live="polite">
                     <div class="terminal-output" id="terminalOutput">
                         <div class="welcome-message">
-                            <div>AshLooper WebUI V1.0</div>
+                            <div>AshReXcue WebUI V2.0</div>
                             <div>Select a log file to view contents</div>
                         </div>
                     </div>
@@ -52,18 +51,26 @@
         <div class="popup">
             <div class="popup-header">
                 <h3>Select Log File</h3>
-                <button class="close-popup">&times;</button>
+                <button type="button" class="close-popup" aria-label="Close">&times;</button>
             </div>
             <div class="popup-content">
                 <div class="file-list" id="fileList"></div>
-                <button onclick="refreshLogs()" class="refresh-btn" id="refreshBtn">
-                    Refresh Files
-                </button>
+                <button type="button" onclick="refreshLogs()" class="refresh-btn" id="refreshBtn">Refresh Files</button>
             </div>
         </div>
     </div>
 
+    <input type="file" id="fileInput" accept=".log,.txt" style="display: none;">
+
     <script src="icons.js"></script>
     <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoContainer = document.getElementById('logoContainer');
+            if (logoContainer) {
+                logoContainer.innerHTML = AshLooperIcons.getLogo();
+            }
+        });
+    </script>
 </body>
 </html>

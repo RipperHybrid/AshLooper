@@ -52,13 +52,13 @@ rotate_logs() {
     mkdir -p "$LOG_DIR"
     
     current_date=$(date '+%Y-%m-%d')
-    current_log="$LOG_DIR/AshLooperSession-$current_date.log"
+    current_log="$LOG_DIR/AshReXcueSession-$current_date.log"
     
     if [ ! -f "$current_log" ]; then
-        all_logs=$(ls -1 "$LOG_DIR"/AshLooper*.log 2>/dev/null | wc -l)
+        all_logs=$(ls -1 "$LOG_DIR"/AshReXcue*.log 2>/dev/null | wc -l)
         
         if [ "$all_logs" -ge $LOG_HISTORY ]; then
-            oldest_log=$(ls -1tr "$LOG_DIR"/AshLooper*.log 2>/dev/null | head -n 1)
+            oldest_log=$(ls -1tr "$LOG_DIR"/AshReXcue*.log 2>/dev/null | head -n 1)
             if [ -n "$oldest_log" ]; then
                 rm -f "$oldest_log"
             fi
@@ -68,7 +68,7 @@ rotate_logs() {
 
 set_log_file() {
     current_date=$(date '+%Y-%m-%d')
-    LOG_FILE="$LOG_DIR/AshLooperSession-$current_date.log"
+    LOG_FILE="$LOG_DIR/AshReXcueSession-$current_date.log"
 }
 
 start_run() {
@@ -77,9 +77,14 @@ start_run() {
     set_log_file
 
     log "◆◆◆◆◆◆◆ NEW BOOT ◆◆◆◆◆◆◆◆"
-    log "AshLooper Process Started"
+    log "AshReXcue Process Started"
     log "Executing post-fs-data.sh"
     log "Running on $ROOT_TYPE"
+    local boot_reason
+    boot_reason=$(getprop sys.boot.reason 2>/dev/null)
+    log "Boot reason: ${boot_reason:-Unknown}"
+    log "Device: $(getprop ro.product.model 2>/dev/null || echo Unknown)"
+    log "Android: $(getprop ro.build.version.release 2>/dev/null || echo Unknown)"
 }
 
 get_prop() {
@@ -130,6 +135,7 @@ list_modules() {
 }
 
 lockdown() {
+    local MODE=$(get_prop "mode") # <-- FIX: Read MODE from prop
     threshold=$(get_prop "threshold")
     log "Threshold ($threshold) reached. Disabling non-protected modules..."
 
@@ -172,20 +178,28 @@ create_mod_list() {
             id=$(grep '^id=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
             version=$(grep '^version=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
             versionCode=$(grep '^versionCode=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
+            
+            size=$(du -s "$m" 2>/dev/null | cut -f1)
+
             if [ -f "$m/disable" ]; then
                 status="disabled"
             else
                 status="enabled"
             fi
+            
             [ $first -eq 0 ] && printf ',' >> "$TMP_FILE"
-            printf '\n  {"id": "%s", "version": "%s", "versionCode": "%s", "folder": "%s", "status": "%s"}' "$id" "$version" "$versionCode" "$folder_name" "$status" >> "$TMP_FILE"
+            
+            printf '\n  {"id": "%s", "version": "%s", "versionCode": "%s", "folder": "%s", "status": "%s", "size": "%s"}' "$id" "$version" "$versionCode" "$folder_name" "$status" "$size" >> "$TMP_FILE"
+            
             first=0
         fi
     done
     printf '\n]\n' >> "$TMP_FILE"
 }
 
+
 disable_new_mods() {
+    local MODE=$(get_prop "mode")
     if [ ! -f "$MODULE_LIST" ]; then
         log "No previous module list found. Invoking lockdown."
         lockdown
@@ -195,7 +209,7 @@ disable_new_mods() {
               ($old[0] | map({key: (.id + "|" + .folder), value: .}) | from_entries) as $oldmap |
               $new[0][] as $n |
               ($oldmap[$n.id + "|" + $n.folder] // null) as $o |
-              if $o == null or ($n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status) then
+              if $o == null or ($n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
                 $n.id
               else
                 empty
@@ -234,6 +248,7 @@ disable_new_mods() {
 }
 
 handle_boot_loop() {
+    local MODE=$(get_prop "mode")
     loops=$(get_prop "loops")
     disable_mode=$(get_prop "disable")
     threshold=$(get_prop "threshold")
@@ -252,7 +267,7 @@ handle_boot_loop() {
             "full")
                 log "Well, you're fucked ¯\\_(ツ)_/¯"
                 log "Full protection enabled but bootloop still occurred"
-                log "Disabling AshLooper module."
+                log "Disabling AshReXcue module."
                 touch "$MODPATH/disable"
                 ;;
             *)

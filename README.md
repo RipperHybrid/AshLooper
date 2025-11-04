@@ -1,7 +1,7 @@
-# AshLooper
+# AshReXcue - Bootloop Protector
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="80%" alt="Banner">
+  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="80%" alt="AshReXcue Banner">
   <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20KernelSU--Next-blueviolet" alt="Compatible with Magisk, KernelSU, KernelSU-Next">
   <br>
   
@@ -26,36 +26,63 @@
 
 ---
 
-## 📌 Features
+- **AshLooper has evolved into AshReXcue!** Experience advanced bootloop protection with enhanced stability monitoring and smarter module management.
 
-- **Boot Loop Detection** – Detects repeated failed boots caused by malfunctioning modules.
-- **Smarter Module Disabling** – Only disables newly installed or updated modules that trigger a bootloop; if issues persist, all modules are disabled as a fallback.
-- **Threshold-Based Action** – Automatically takes action if boot attempts exceed your configured threshold.
-- **Persistent Tracking** – Keeps track of boot attempts even after full power-off or battery removal.
-- **Magisk & KernelSU Compatible** – Works with both Magisk and KernelSU for wide support.
+### 🚀 Enhanced Protection Features:
+- **Advanced Stability Monitoring** - Post-boot process verification for system stability
+- **Intelligent Module Detection** - Tracks module changes including size, version, and status
+- **Configurable Monitoring** - Customizable stability periods and failure thresholds
+- **Professional Web UI v2.0** - Enhanced interface with better session management
+- **Improved Error Handling** - Better recovery from system crashes and boot failures
 
 ---
 
-## ⚙️ Modes
+## 📌 Core Features
 
-- **Targeted Disable Mode** – Disables only the new or updated module that caused a bootloop.
-- **Fallback Disable All Mode** – If the problem persists, disables all modules except AshLooper.
+- **Boot Loop Detection** – Advanced detection of repeated failed boots caused by malfunctioning modules
+- **Smart Module Management** – Intelligently disables problematic modules while preserving working ones
+- **Threshold-Based Protection** – Configurable boot attempt thresholds for automatic intervention
+- **Persistent Tracking** – Maintains boot attempt counts through power cycles and reboots
+- **Multi-Root Support** – Compatible with Magisk, KernelSU, and KernelSU-Next
+- **Real-time Monitoring** – Continuous system process verification during boot
+
+---
+
+## ⚙️ Protection Modes
+
+- **Targeted Disable Mode** – Precisely disables only problematic modules causing bootloops
+- **Comprehensive Protection** – Falls back to full module disable if targeted approach fails
+- **Advanced Recovery Options** – Configurable reboot to recovery for advanced users
 
 ---
 
 ## 🛠️ Installation
 
-1. Download and flash **AshLooper** via Magisk.
-2. Configure your desired boot threshold and mode (see documentation).
-3. Reboot your device and AshLooper will automatically monitor and protect against bootloops.
+1. Download and flash **AshReXcue** via your preferred root manager (Magisk/KernelSU)
+2. Configure protection settings during installation:
+   - Select your preferred protection mode
+   - Set boot attempt threshold (1-4 recommended)
+3. Reboot your device - AshReXcue will automatically begin monitoring and protection
 
 ---
 
-## 🔔 Notes
+## 🌐 Web Interface
 
-- **DMR mode is recommended only if your device has an advanced recovery (such as TWRP, OrangeFox, etc.) that allows you to fix a bootloop or manually manage files and modules.**
-  If you do not have such a recovery, avoid using DMR mode.
-- Boot attempt tracking is robust and persists even after a complete power-off.
+Access the built-in Web UI to:
+- View detailed boot session logs
+- Monitor system stability in real-time
+- Configure module settings
+- Analyze boot attempts and module changes
+- Export logs for debugging
+
+---
+
+## 🔔 Important Notes
+
+- **Advanced Recovery Recommended** – DMR mode works best with custom recoveries (TWRP, OrangeFox, etc.)
+- **Backup Important Data** – Always maintain backups of critical data
+- **Stability Monitoring** – New AshReXcue features provide enhanced system stability verification
+- **Persistent Protection** – Boot tracking survives complete power loss and hard resets
 
 ---
 
@@ -65,19 +92,25 @@ Licensed under the [GPL-3.0 License](LICENSE).
 
 ---
 
-## 💡 Credits
+## 💡 Credits & Dependencies
 
-- **JSON Processor:** [jq](https://jqlang.github.io/jq/) – v1.7.1, included for fast and reliable JSON parsing
-- **Banner By:** [Adi](https://t.me/adiLohar) – [Banner Channel](https://t.me/WDableuW)
-
----
-
-## Disclaimer
-
-AshLooper is designed to help protect your device from bootloops caused by malfunctioning modules. While every effort has been made to ensure reliability, please use this tool responsibly and always keep backups of important data.
+- **JSON Processing:** [jq](https://jqlang.github.io/jq/) – v1.7.1 for reliable JSON parsing
 
 ---
 
-## Support
+## ⚠️ Disclaimer
 
-For help or to report an issue, contact [Ripper Hybrid](https://t.me/Ripper_Hybrid) on Telegram.
+AshReXcue is designed to protect your device from bootloops caused by module conflicts. While extensive testing ensures reliability, users should always maintain backups and use the tool responsibly.
+
+---
+
+## 📞 Support & Community
+
+For assistance, bug reports, or feature requests:
+- **Telegram:** [Ripper Hybrid](https://t.me/Ripper_Hybrid)
+- **GitHub Issues:** Report bugs and request features
+- **Documentation:** Check the wiki for detailed guides
+
+---
+
+*AshReXcue: Your reliable rescue from bootloop disasters* 🔄🛡️
