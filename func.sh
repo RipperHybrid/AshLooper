@@ -1,4 +1,5 @@
 #!/system/bin/sh
+# AshReXcue Uninstall Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
 
 MODULE_PROP="$MODPATH/module.prop"
 mdir="/data/adb/modules"
@@ -38,6 +39,22 @@ chooseport() {
 delete() { rm -f "$@"; }
 
 delete_recursive() { rm -rf "$@"; }
+
+[ -d /data/adb/ksu ] || [ -f /data/adb/ksu/ksu ] && KSU=1
+
+[ -d /data/adb/magisk ] || [ -f /data/adb/magisk/magisk ] && MAGISK=1
+
+if [ "$KSU" ] && [ "$MAGISK" ]; then
+    method="KernelSU+Magisk"
+elif [ "$KSU" ]; then
+    method="KernelSU"
+elif [ "$MAGISK" ]; then
+    method="Magisk"
+else
+    ui_print "✘ ERROR: KernelSU/Magisk not detected!"
+    ui_print "  This module requires a supported root solution."
+    abort
+fi
 
 log() {
     echo "$(date '+%d.%m.%y %T'): >[$1]<" >> "$LOG_FILE"
@@ -85,6 +102,8 @@ start_run() {
     log "Boot reason: ${boot_reason:-Unknown}"
     log "Device: $(getprop ro.product.model 2>/dev/null || echo Unknown)"
     log "Android: $(getprop ro.build.version.release 2>/dev/null || echo Unknown)"
+    log "Module Version: $(get_prop version 2>/dev/null || echo Unknown)"
+    log "Module Version Code: $(get_prop versionCode 2>/dev/null || echo Unknown)"
 }
 
 get_prop() {
@@ -118,29 +137,28 @@ modify_prop() {
 }
 
 list_modules() {
-    echo "###############" >> "$LOG_FILE"
-    echo ">[Available modules:]< " >> "$LOG_FILE"
+    log "###############"
+    log "Available modules: "
     count=0
     for module_folder in "$mdir"/*; do
         if [ -d "$module_folder" ]; then
             module_name=$(basename "$module_folder")
-            status="[Enabled]"
-            [ -f "$module_folder/disable" ] && status="[Disabled]"
-            echo ">[$((count + 1)). $module_name]< $status" >> "$LOG_FILE"
+            status="- Enabled"
+            [ -f "$module_folder/disable" ] && status="- Disabled"
+            log "$((count + 1)). $module_name $status"
             count=$((count + 1))
         fi
     done
-    echo "###############" >> "$LOG_FILE"
-    echo "" >> "$LOG_FILE"
+    log "###############"
 }
 
 lockdown() {
-    local MODE=$(get_prop "mode") # <-- FIX: Read MODE from prop
+    local MODE=$(get_prop "mode")
     threshold=$(get_prop "threshold")
     log "Threshold ($threshold) reached. Disabling non-protected modules..."
 
-    echo "###########################" >> "$LOG_FILE"
-    echo ">[Lockdown Mode Activated]<" >> "$LOG_FILE"
+    log "###########################"
+    log "Lockdown Mode Activated"
 
     enabled_modules=0
     for module_folder in "$mdir"/*; do
@@ -148,14 +166,14 @@ lockdown() {
             module_name=$(basename "$module_folder")
             if [ "$module_name" != "AshLooper" ]; then
                 touch "$module_folder/disable"
-                echo ">[Disabled module: $module_name]<" >> "$LOG_FILE"
+                log "Disabled module: $module_name"
                 enabled_modules=$((enabled_modules + 1))
             fi
         fi
     done
 
-    echo ">[Total Disabled: $enabled_modules]<" >> "$LOG_FILE"
-    echo "###########################" >> "$LOG_FILE"
+    log "Total Disabled: $enabled_modules"
+    log "###########################"
 
     modify_prop "loops" "0" 
     modify_prop "disable" "full"
@@ -174,8 +192,8 @@ create_mod_list() {
     first=1
     for m in "$mdir"/*; do
         if [ -d "$m" ] && [ -f "$m/module.prop" ]; then
-            folder_name=$(basename "$m")
             id=$(grep '^id=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
+            name=$(grep '^name=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
             version=$(grep '^version=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
             versionCode=$(grep '^versionCode=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
             
@@ -189,14 +207,13 @@ create_mod_list() {
             
             [ $first -eq 0 ] && printf ',' >> "$TMP_FILE"
             
-            printf '\n  {"id": "%s", "version": "%s", "versionCode": "%s", "folder": "%s", "status": "%s", "size": "%s"}' "$id" "$version" "$versionCode" "$folder_name" "$status" "$size" >> "$TMP_FILE"
+            printf '\n  {"id": "%s", "name": "%s", "version": "%s", "versionCode": "%s", "status": "%s", "size": "%s"}' "$id" "$name" "$version" "$versionCode" "$status" "$size" >> "$TMP_FILE"
             
             first=0
         fi
     done
     printf '\n]\n' >> "$TMP_FILE"
 }
-
 
 disable_new_mods() {
     local MODE=$(get_prop "mode")
@@ -206,10 +223,10 @@ disable_new_mods() {
     else
         changed_ids=$(
             "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
-              ($old[0] | map({key: (.id + "|" + .folder), value: .}) | from_entries) as $oldmap |
+              ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
               $new[0][] as $n |
-              ($oldmap[$n.id + "|" + $n.folder] // null) as $o |
-              if $o == null or ($n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
+              ($oldmap[$n.id] // null) as $o |
+              if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
                 $n.id
               else
                 empty

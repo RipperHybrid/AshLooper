@@ -1,9 +1,8 @@
 class AshLooperIcons {
     static getLogo() {
-        return `<svg class="logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="-90 0 600 200" role="img" aria-label="AshLooper">
+        return `<svg class="logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="-240 60 700 200" role="img" aria-label="AshLooper">
             <path d="M91.256 43.595c-42.332 2.172-75.995 37.577-75.995 80.931 0 14.627 3.832 28.349 10.535 40.195l-8.118 15.765C6.548 164.704 0 145.388 0 124.526c0-53.278 42.704-96.473 95.382-96.473.753 0 1.504.009 2.252.026L111.412 0h29.434v39.696c29.733 16.337 49.918 48.2 49.918 84.829 0 53.279-42.704 96.473-95.382 96.473-16.079 0-31.229-4.024-44.519-11.132l6.712-13.875c11.262 6.107 24.134 9.571 37.807 9.571 44.249 0 80.121-36.282 80.121-81.037 0-27.971-14.013-52.633-35.325-67.197v76.695l-26.897-25.442V50.453l-33.218 78.891h33.218V116.68l31.141 29.274-32.179 24.705V157.58H68.437l-28.855 65.189-35.708-.699z"/>
             <path d="M140.125 179.637H112.21l27.915-23.914z"/>
-            <text x="200" y="160" font-size="85" font-family="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" font-weight="600" fill="currentColor">Looper</text>
         </svg>`;
     }
 
@@ -51,6 +50,16 @@ class AshLooperIcons {
         </svg>`;
     }
 
+    static getRetroIcon() {
+        return `<svg width="20" height="20" viewBox="0 -0.5 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M11.5 16C11.3369 13.8621 9.63793 12.1631 7.5 12C9.63793 11.8369 11.3369 10.1379 11.5 8C11.6631 10.1379 13.3621 11.8369 15.5 12C13.3621 12.1631 11.6631 13.8621 11.5 16V16Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M16.5 19C16.4128 18.3646 16.0239 17.1535 14.5 17C16.0239 16.8465 16.4128 15.6354 16.5 15C16.6535 16.5239 17.8646 16.9128 18.5 17C17.8646 17.0872 16.6535 17.4761 16.5 19Z" fill="currentColor"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M16.5 19C16.4182 17.9311 15.5689 17.0818 14.5 17C15.5689 16.9182 16.4182 16.0689 16.5 15C16.5818 16.0689 17.4311 16.9182 18.5 17C17.4311 17.0818 16.5818 17.9311 16.5 19Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M16.5 5C16.6535 6.52394 17.8646 6.91282 18.5 7C17.8646 7.08719 16.6535 7.47606 16.5 9C16.4128 8.3646 16.0239 7.15348 14.5 7C16.0239 6.84652 16.4128 5.6354 16.5 5Z" fill="currentColor"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M16.5 5C16.4182 6.06887 15.5689 6.91823 14.5 7C15.5689 7.08177 16.4182 7.93113 16.5 9C16.5818 7.93113 17.4311 7.08177 18.5 7C17.4311 6.91823 16.5818 6.06887 16.5 5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>`;
+    }
+
     static getSaveIcon() {
         return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H16L21 8V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -79,7 +88,7 @@ class AshLooperIcons {
         </svg>`;
     }
 
-    static getCloseIcon() {
+static getCloseIcon() {
         return `✕`;
     }
 }

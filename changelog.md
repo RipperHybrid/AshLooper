@@ -1,47 +1,36 @@
-# AshReXcue - Version 9.0 Changelog
+# AshReXcue - Version 9.1 Changelog
 
-## 🎉 Major Rebrand: AshLooper → AshReXcue
-- **Complete module rename** to "AshReXcue - Bootloop Protector"
-- **New visual identity** with enhanced logo and branding
-- **Updated all references** from AshLooper to AshReXcue throughout codebase
-- **Log files now use** `AshReXcueSession-` prefix instead of `AshLooperSession-`
+## 🚀 Enhanced Core Architecture
+- **Separated script execution** with dedicated `post-fs-data.sh` and `service.sh` files
+- **Improved root detection** with robust KernelSU and Magisk verification
+- **Enhanced module tracking** with name-based identification in JSON comparisons
 
-## 🚀 Enhanced Protection System
-- **Advanced Stability Monitoring** with post-boot process verification
-- **Intelligent Module Detection** now tracks module size changes in addition to version/status
-- **Configurable Stability Period** with new `stability_time` property (default: 80s)
-- **Consecutive Failure Tracking** with 3-strike system before protection triggers
-- **Critical Process Monitoring** for system_server and surfaceflinger
+## 🛡️ Advanced Protection System
+- **Faster stability monitoring** with reduced check interval (3 seconds vs 5 seconds)
+- **Tighter threshold constraints** limited to 1-5 boot loops (previously 1-10)
+- **Enhanced consecutive failure tracking** with improved process validation
+- **Stability time configuration** with range validation (50-120 seconds)
+
+## 🎨 Web UI v2.1 Enhancements
+- **Three theme system** with Dark, Light, and Retro (Amber) modes
+- **Enhanced session detection** with "unfinished" status indicators
+- **Improved animations** with bounce effects and smooth transitions
+- **Better mobile responsiveness** and touch interactions
 
 ## 🔧 Technical Improvements
-- **Fixed MODE variable** handling in lockdown function
-- **Enhanced JSON comparison** with comprehensive change detection
-- **Better error handling** for system command availability
-- **Improved boot completion** verification using multiple methods
-- **Professional installation UI** with boxed layout and better UX
+- **Enhanced uninstall script** that properly cleans module data directories
+- **Safe content handling** with proper escaping for file operations
+- **Improved error suppression** and logging throughout the system
+- **Better KSU API integration** with proper callback handling
 
-## 🎨 Web UI v2.0 Updates
-- **AshReXcue WebUI V2.0** with updated branding
-- **Enhanced session management** for boot session viewing
-- **Improved mobile responsiveness** and accessibility
-- **Better settings validation** with real-time feedback
-- **ARIA labels** and semantic HTML for accessibility
+## 🎯 User Experience
+- **Streamlined installation UI** with better visual hierarchy
+- **Enhanced console feedback** with more descriptive status messages
+- **Improved session selection** with detailed boot session information
+- **Better file operations** with enhanced safety and error handling
 
-## 🛡️ Stability & Reliability
-- **Post-boot crash detection** with configurable monitoring period
-- **System process validation** using both `pgrep` and `service check` methods
-- **Enhanced module change logging** with detailed change descriptions
-- **Better property access validation** during stability checks
-
-## 📱 Installation & Configuration
-- **Streamlined setup process** with clear step-by-step interface
-- **Enhanced mode selection** with better visual feedback
-- **Improved threshold configuration** (1-4 failed boots)
-- **Professional console output** with formatted boxes and icons
-
-## 🔄 Backward Compatibility
-- **Maintains existing configuration** structure
-- **Preserves all existing functionality** while adding new features
-- **Smooth upgrade path** from AshLooper v8.1
-
-> **Note:** This update represents a significant evolution from AshLooper to AshReXcue, focusing on enhanced stability monitoring and professional user experience while maintaining the core bootloop protection functionality.
+## 🔒 Safety & Reliability
+- **Enhanced content sanitization** for all file operations
+- **Improved crash detection** with better system process monitoring
+- **Robust error recovery** throughout the protection system
+- **Better boot sequence validation** with multiple verification methods

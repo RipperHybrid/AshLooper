@@ -58,17 +58,28 @@
 
 ## 🛠️ Installation
 
-1. Download and flash **AshReXcue** via your preferred root manager (Magisk/KernelSU)
-2. Configure protection settings during installation:
-   - Select your preferred protection mode
-   - Set boot attempt threshold (1-4 recommended)
-3. Reboot your device - AshReXcue will automatically begin monitoring and protection
+### ⚠️ Compatibility
+
+This module is built specifically for **Magisk** and **KernelSU**.
+
+**Apatch Users:** This module will **fail to install** on Apatch. The installation script currently only detects Magisk or KernelSU and will abort if neither is found.
+
+I have not tested Apatch and cannot guarantee support. However, if you are willing to help test, please DM me. I can provide a test version and am open to fixing any problems that arise.
+
+### Steps
+
+1.  Download and flash **AshReXcue** via Magisk or KernelSU.
+2.  Configure protection settings during installation:
+    * Select your preferred protection mode
+    * Set boot attempt threshold (1-4 recommended)
+3.  Reboot your device - AshReXcue will automatically begin monitoring and protection.
 
 ---
 
 ## 🌐 Web Interface
 
-Access the built-in Web UI to:
+### Access the built-in Web UI to:
+
 - View detailed boot session logs
 - Monitor system stability in real-time
 - Configure module settings

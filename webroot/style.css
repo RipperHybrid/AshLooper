@@ -10,9 +10,10 @@
     --bg-tertiary: #202028;
     --text-primary: #d0d0d0;
     --text-secondary: #8a8a9a;
-    --accent: #00a650;
-    --accent-hover: #008c40;
-    --accent-glow: rgba(0, 166, 80, 0.3);
+    --accent: #5d8bff;
+    --accent-hover: #4e75db;
+    --accent-glow: rgba(93, 139, 255, 0.3);
+    --terminal-border: #5d8bff;
     --border: #2e2e3a;
     --success: #00a650;
     --error: #e63946;
@@ -20,7 +21,7 @@
     --info: #2b8bd6;
     --terminal-bg: #0e0e12;
     --terminal-text: #c0c0c0;
-    --terminal-border: #00a650;
+    --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .light-mode {
@@ -29,9 +30,10 @@
     --bg-tertiary: #e8ecef;
     --text-primary: #1a1a1a;
     --text-secondary: #6c757d;
-    --accent: #00a650;
-    --accent-hover: #008c40;
-    --accent-glow: rgba(0, 166, 80, 0.3);
+    --accent: #0062d1;
+    --accent-hover: #0050aa;
+    --accent-glow: rgba(0, 98, 209, 0.3);
+    --terminal-border: #0062d1;
     --border: #d0d5dd;
     --success: #00a650;
     --error: #d81b60;
@@ -39,7 +41,25 @@
     --info: #0288d1;
     --terminal-bg: #1a1a1a;
     --terminal-text: #c0c0c0;
-    --terminal-border: #00a650;
+}
+
+.retro-mode {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --text-primary: #ffb000;
+    --text-secondary: #d99800;
+    --accent: #ffb000;
+    --accent-hover: #ffc340;
+    --accent-glow: rgba(255, 176, 0, 0.3);
+    --terminal-border: #ffb000;
+    --border: #4d3400;
+    --success: #00ff41;
+    --error: #ff4100;
+    --warning: #ffb000;
+    --info: #00c3ff;
+    --terminal-bg: #000000;
+    --terminal-text: #ffb000;
 }
 
 body {
@@ -77,6 +97,23 @@ body {
     font-weight: 800;
     margin-bottom: 4px;
     letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    height: 45px;
+    overflow: visible;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.header-right-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
 }
 
 .subtitle {
@@ -84,14 +121,7 @@ body {
     font-size: 0.9em;
     letter-spacing: 1px;
     font-weight: 500;
-    margin-left: 12px;
-    margin-top: 4px;
-}
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    white-space: nowrap;
 }
 
 .theme-btn {
@@ -103,12 +133,13 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.85em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     display: flex;
     align-items: center;
     justify-content: center;
     width: 44px;
     height: 44px;
+    align-self: center;
 }
 
 .theme-btn:hover {
@@ -170,7 +201,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.9em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -235,6 +266,7 @@ body {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 8px var(--accent-glow);
+    width: 240px;
 }
 
 .search-input::placeholder {
@@ -255,7 +287,7 @@ body {
     font-weight: 600;
     font-family: 'Inter', sans-serif;
     box-shadow: 0 2px 8px rgba(138, 43, 226, 0.3);
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
 }
 
 .badge-text:hover {
@@ -272,7 +304,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.85em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -321,7 +353,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.85em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -359,12 +391,37 @@ body {
 
 .spinner {
     width: 40px;
-    height: 40px;
+    height: 25px;
     border: 4px solid var(--accent);
-    border-top-color: transparent;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    position: relative;
+    animation: spin 1.2s infinite linear;
 }
+
+.spinner::before {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 25px;
+    border: 4px solid var(--accent);
+    border-radius: 50%;
+    top: -4px;
+    left: -4px;
+    transform: rotate(120deg);
+}
+
+.spinner::after {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 25px;
+    border: 4px solid var(--accent);
+    border-radius: 50%;
+    top: -4px;
+    left: -4px;
+    transform: rotate(240deg);
+}
+
 
 .terminal {
     background: var(--terminal-bg);
@@ -389,6 +446,17 @@ body {
 
 .terminal-output {
     position: relative;
+    transition: all 0.3s ease;
+}
+
+.terminal-output.clearing {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+.terminal-output.clearing .terminal-line,
+.terminal-output.clearing .boot-header,
+.terminal-output.clearing .boot-footer {
+    animation: line-clear 0.3s ease-out forwards;
 }
 
 .welcome-message {
@@ -409,6 +477,12 @@ body {
     white-space: pre-wrap;
     word-break: break-all;
     padding: 2px 0;
+}
+
+.terminal-output .terminal-line,
+.terminal-output .boot-header,
+.terminal-output .boot-footer {
+    animation: line-appear 0.3s ease-out;
 }
 
 .terminal-line.error {
@@ -481,7 +555,7 @@ body {
     width: 90%;
     max-width: 480px;
     max-height: 80vh;
-    animation: popupSlideUp 0.4s ease;
+    animation: popupSlideUp 0.5s ease-out forwards;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     overflow: hidden;
 }
@@ -522,7 +596,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
 }
 
 .close-popup:hover {
@@ -548,7 +622,7 @@ body {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85em;
     color: var(--text-primary);
@@ -611,7 +685,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.9em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     box-shadow: 0 4px 12px var(--accent-glow);
     display: flex;
     align-items: center;
@@ -660,7 +734,7 @@ body {
     overflow-y: auto;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     transform: scale(0.9);
-    animation: scaleIn 0.3s ease-out forwards;
+    animation: scaleIn 0.4s ease-out forwards;
     border: 1px solid var(--border);
 }
 
@@ -679,7 +753,6 @@ body {
     font-size: 1.5em;
     font-weight: 600;
 }
-
 
 .boot-header {
     background: linear-gradient(135deg, var(--success), #0077b6);
@@ -716,7 +789,7 @@ body {
     overflow-y: auto;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     transform: scale(0.9);
-    animation: scaleIn 0.3s ease-out forwards;
+    animation: scaleIn 0.4s ease-out forwards;
     border: 1px solid var(--border);
 }
 
@@ -780,7 +853,7 @@ body {
     border-radius: 8px;
     border: 1px solid var(--border);
     cursor: default;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
 }
 
 .session-item:hover {
@@ -813,7 +886,7 @@ body {
     border-radius: 6px;
     font-size: 0.85em;
     font-weight: 600;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     cursor: pointer;
     border: none;
     margin-left: 10px;
@@ -833,7 +906,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.85em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -974,7 +1047,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.9em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
     box-shadow: 0 4px 12px var(--accent-glow);
     margin-top: 10px;
     width: 100%;
@@ -1001,7 +1074,7 @@ body {
     max-width: 400px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     transform: scale(0.9);
-    animation: scaleIn 0.3s ease-out forwards;
+    animation: scaleIn 0.4s ease-out forwards;
     border: 1px solid var(--warning);
 }
 
@@ -1060,7 +1133,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.9em;
-    transition: all 0.3s ease;
+    transition: var(--transition-bounce);
 }
 
 .warning-modal-btn.confirm {
@@ -1096,8 +1169,9 @@ body {
 }
 
 @keyframes scaleIn {
-    from { transform: scale(0.9); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    0% { transform: scale(0.9); opacity: 0; }
+    60% { transform: scale(1.03); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes scaleOut {
@@ -1116,13 +1190,37 @@ body {
 }
 
 @keyframes popupSlideUp {
-    from { opacity: 0; transform: translateY(32px); }
-    to { opacity: 1; transform: translateY(0); }
+    0% { opacity: 0; transform: translateY(32px); }
+    60% { opacity: 1; transform: translateY(-5px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+@keyframes line-appear {
+    from { 
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes line-clear {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+}
+
 
 @media (max-width: 768px) {
     .app {
@@ -1155,6 +1253,10 @@ body {
         max-width: 240px;
         margin: 0 0 10px 0;
         order: 0;
+    }
+    
+    .search-input:focus {
+        width: 100%;
     }
     
     .terminal {
@@ -1227,14 +1329,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-}
-
-.header-left h1 {
-    display: flex;
-    align-items: center;
-    margin: 0;
-    height: 45px;
-    overflow: visible;
 }
 
 .logo-svg {
