@@ -1,4 +1,4 @@
-# AshReXcue Module Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
+# AshReXcue customize Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
 
 . "$MODPATH"/func.sh || { ui_print "Error: Failed to source func.sh"; exit 1; }
 

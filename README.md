@@ -1,13 +1,17 @@
 # AshReXcue - Bootloop Protector
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="80%" alt="AshReXcue Banner">
-  <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20KernelSU--Next-blueviolet" alt="Compatible with Magisk, KernelSU, KernelSU-Next">
+  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="60%" alt="AshLooper Banner">
+  <br>
+  <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%26%20Forks-blueviolet" alt="Compatibility Badge">
   <br>
   
   <a href="https://github.com/RipperHybrid/AshLooper/releases/latest">
     <img src="https://img.shields.io/github/v/release/RipperHybrid/AshLooper?label=Latest%20Release&logo=git&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="Latest Release">
-    <img src="https://img.shields.io/github/license/RipperHybrid/AshLooper?label=License&logo=git&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="License">
+  </a>
+  
+  <a href="https://ashrexcue.pages.dev/">
+    <img src="https://img.shields.io/website?url=https%3A%2F%2Fashrexcue.pages.dev&up_message=Online&style=flat&logo=cloudflare&label=Cloudflare%20Page&color=F38020&logoColor=white" alt="Website Status">
   </a>
   <br>
   
@@ -20,108 +24,118 @@
   <br>
   
   <a href="https://github.com/RipperHybrid/AshLooper/releases">
-    <img src="https://img.shields.io/github/downloads/RipperHybrid/AshLooper/total?label=Total%20Downloads&logo=github&logoColor=white&color=18673F&labelColor=2E2E3F&style=flat" alt="Total Downloads">
+    <img src="https://img.shields.io/github/downloads/RipperHybrid/AshLooper/total?label=Total%20Downloads&logo=github&logoColor=orange&color=18673F&labelColor=2E2E3F&style=flat" alt="Total Downloads">
   </a>
 </p>
 
----
-
-- **AshLooper has evolved into AshReXcue!** Experience advanced bootloop protection with enhanced stability monitoring and smarter module management.
-
-### 🚀 Enhanced Protection Features:
-- **Advanced Stability Monitoring** - Post-boot process verification for system stability
-- **Intelligent Module Detection** - Tracks module changes including size, version, and status
-- **Configurable Monitoring** - Customizable stability periods and failure thresholds
-- **Professional Web UI v2.0** - Enhanced interface with better session management
-- **Improved Error Handling** - Better recovery from system crashes and boot failures
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Orbitron&weight=500&pause=1000&color=41F791&center=true&vCenter=true&width=935&height=70&lines=Advanced+Bootloop+Protection;Now+featuring+a+full+WebUI!;Smart+Detection+%26+Stability+Checks;Native+Magisk,+KernelSU+%26+Forks+Support)](https://git.io/typing-svg)
 
 ---
 
-## 📌 Core Features
+## 📖 About
 
-- **Boot Loop Detection** – Advanced detection of repeated failed boots caused by malfunctioning modules
-- **Smart Module Management** – Intelligently disables problematic modules while preserving working ones
-- **Threshold-Based Protection** – Configurable boot attempt thresholds for automatic intervention
-- **Persistent Tracking** – Maintains boot attempt counts through power cycles and reboots
-- **Multi-Root Support** – Compatible with Magisk, KernelSU, and KernelSU-Next
-- **Real-time Monitoring** – Continuous system process verification during boot
+> **⚠️ Notice: Resilience & Backup Plans**
+> Following a recent temporary suspension of this account, I have updated the infrastructure to prevent future disruptions:
+> 
+> 1.  **Updates:** The update check has moved to **Cloudflare**. Your module will check for updates reliably, regardless of GitHub's status.
+> 2.  **Mirrors:** This repository is fully synchronized with [**GitLab**](https://gitlab.com/RipperHybrid/AshLooper).
+>
+> If this page is ever down, please check the GitLab link for the latest releases.
 
----
+**AshReXcue** (formerly AshLooper) is a sophisticated boot protection module designed for **Magisk**, **KernelSU**, and their various **Forks**.
 
-## ⚙️ Protection Modes
+Unlike basic bootloop protectors that simply disable all modules upon a failed boot, AshReXcue uses **Smart Detection** to identify recently added or modified modules and targets them first. It features a fully interactive **WebUI Dashboard** embedded directly in your root manager, allowing you to view logs, manage protection settings, and analyze boot sessions without leaving the app.
 
-- **Targeted Disable Mode** – Precisely disables only problematic modules causing bootloops
-- **Comprehensive Protection** – Falls back to full module disable if targeted approach fails
-- **Advanced Recovery Options** – Configurable reboot to recovery for advanced users
-
----
-
-## 🛠️ Installation
-
-### ⚠️ Compatibility
-
-This module is built specifically for **Magisk** and **KernelSU**.
-
-**Apatch Users:** This module will **fail to install** on Apatch. The installation script currently only detects Magisk or KernelSU and will abort if neither is found.
-
-I have not tested Apatch and cannot guarantee support. However, if you are willing to help test, please DM me. I can provide a test version and am open to fixing any problems that arise.
-
-### Steps
-
-1.  Download and flash **AshReXcue** via Magisk or KernelSU.
-2.  Configure protection settings during installation:
-    * Select your preferred protection mode
-    * Set boot attempt threshold (1-4 recommended)
-3.  Reboot your device - AshReXcue will automatically begin monitoring and protection.
+> **🧪 Help Me Expand Compatibility**
+> If your root solution (or specific fork) is not listed or supported, **please open an issue or reach out!** I am looking for testers to help verify and add compatibility for other root environments.
 
 ---
 
-## 🌐 Web Interface
+## ✨ Key Features
 
-### Access the built-in Web UI to:
+### 🛡️ Intelligent Protection
+* **Smart Differential Analysis:** Maintains a history of your installed modules. If a bootloop occurs, it compares the current state to the last successful boot to pinpoint *new* or *changed* modules.
+* **Stability Monitoring:** Doesn't just wait for `sys.boot_completed`. It monitors critical system processes (`system_server`, `surfaceflinger`) for a user-defined stability period (default 20s) to ensure the device is actually usable, not just "booted".
+* **Dynamic Timeout:** Automatically adjusts the boot timeout limit based on your device's actual boot speed.
 
-- View detailed boot session logs
-- Monitor system stability in real-time
-- Configure module settings
-- Analyze boot attempts and module changes
-- Export logs for debugging
+### 💻 Modern WebUI Dashboard
+* **Live Log Viewer:** Read protection logs directly in the app with syntax highlighting.
+* **Session History:** Browse previous boot sessions (Successful vs. Failed/Incomplete).
+* **Theming:** Switch between **Dark**, **Light**, and **Retro (Amber CRT)** themes.
+* **Settings Management:** Adjust timeout, threshold, and stability time via a graphical interface.
+* **File Management:** Copy logs to clipboard or save them to `/storage/emulated/0/Download/`.
 
----
-
-## 🔔 Important Notes
-
-- **Advanced Recovery Recommended** – DMR mode works best with custom recoveries (TWRP, OrangeFox, etc.)
-- **Backup Important Data** – Always maintain backups of critical data
-- **Stability Monitoring** – New AshReXcue features provide enhanced system stability verification
-- **Persistent Protection** – Boot tracking survives complete power loss and hard resets
-
----
-
-## 📄 License
-
-Licensed under the [GPL-3.0 License](LICENSE).
+### ⚙️ Configurable Modes
+During installation (via Volume Keys), you can choose:
+1.  **Disable Modules:** Disables problematic modules and reboots normally.
+2.  **Disable & Recovery:** Disables problematic modules and reboots into Recovery mode.
 
 ---
 
-## 💡 Credits & Dependencies
+## 📥 Installation
 
-- **JSON Processing:** [jq](https://jqlang.github.io/jq/) – v1.7.1 for reliable JSON parsing
-
----
-
-## ⚠️ Disclaimer
-
-AshReXcue is designed to protect your device from bootloops caused by module conflicts. While extensive testing ensures reliability, users should always maintain backups and use the tool responsibly.
-
----
-
-## 📞 Support & Community
-
-For assistance, bug reports, or feature requests:
-- **Telegram:** [Ripper Hybrid](https://t.me/Ripper_Hybrid)
-- **GitHub Issues:** Report bugs and request features
-- **Documentation:** Check the wiki for detailed guides
+1.  Open **Magisk**, **KernelSU**, or your **Fork Manager**.
+2.  Install the `AshReXcue` zip file.
+3.  **Follow the Volume Key instructions** in the terminal:
+    * **Step 1:** Select Protection Mode (Disable Only vs. Disable + Recovery).
+    * **Step 2:** Select Loop Threshold (How many failed boots trigger protection).
+4.  Reboot your device.
 
 ---
 
-*AshReXcue: Your reliable rescue from bootloop disasters* 🔄🛡️
+## 🛠️ How It Works
+
+1.  **Boot Start:** AshReXcue initializes early in `post-fs-data`.
+2.  **Monitoring:** It waits for the boot to complete within the defined `timeout`.
+3.  **Stability Check:** Once booted, it monitors system stability for the configured time (`stability_time`).
+4.  **Success:** If stable, it saves the current list of modules as a "Known Good" state.
+5.  **Failure:**
+    * **Threshold Not Reached:** Increments loop counter.
+    * **Threshold Reached:**
+        1.  Checks for **New/Changed** modules since the last good boot.
+        2.  **Targeted Strike:** Disables *only* those suspicious modules.
+        3.  **Lockdown:** If no changes are detected but loops continue, it disables *all* modules (except itself) to save the device.
+
+---
+
+## 🖥️ Dashboard & Settings
+
+Access the dashboard via your Root Manager's module list (WebUI support required, e.g., KernelSU Next).
+
+### Adjustable Settings
+You can modify these values safely through the WebUI:
+
+| Setting | Default | Range | Description |
+| :--- | :--- | :--- | :--- |
+| **Timeout** | 60s | 20s - 300s | Maximum time allowed for the device to boot before protection kicks in. |
+| **Threshold** | User Set | 1 - 5 | Number of failed boots allowed before modules are disabled. |
+| **Stability** | 20s | 10s - 40s | How long to monitor `system_server` after boot to ensure no crashes occur. |
+
+> **⚠️ Note:** The system prevents lowering the Timeout by more than 10 seconds at a time to prevent accidental loops caused by aggressive settings.
+
+---
+
+## 📂 Logs & Debugging
+
+AshReXcue keeps detailed logs of every boot session.
+
+* **Log Location:** `/cache/looper/`
+* **Log Format:** `AshReXcueSession-YYYY-MM-DD.log`
+* **History:** Retains the last 10 boot sessions.
+
+You can easily export these logs via the WebUI by clicking the **Save** or **Copy** icons.
+
+---
+
+## 🤝 Credits
+- **jq Binary** – [jq](https://jqlang.org)
+- **Cloudflare** – [Pages](https://pages.cloudflare.com/) (Web Page Hosting & Update System)
+
+## 👤 Author
+- **AshBorn** - ([@RipperHybrid](https://github.com/RipperHybrid))
+
+---
+
+<div align="center">
+    <sub>Powered by <strong>Cloudflare</strong> • Stay Protected by <strong>AshReXcue</strong></sub>
+</div>

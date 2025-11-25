@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# AshReXcue Uninstall Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
+# AshReXcue service Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
 
 MODPATH="${0%/*}"
 . "$MODPATH/func.sh" || { logger "Error: Failed to source func.sh"; exit 1; }
@@ -17,11 +17,64 @@ set_log_file
 log "Executing Service.sh"
 log "Checking if the device is completely booted..."
 
+CHECK_CMD=""
+
+validate_tools() {
+    if command -v pgrep >/dev/null 2>&1; then
+        test_val=$(pgrep -x init 2>/dev/null)
+        if [ "$test_val" = "1" ]; then
+            CHECK_CMD="pgrep_exact"
+            return 0
+        fi
+
+        all_pids=$(pgrep init 2>/dev/null)
+        set -- $all_pids
+        if [ "$1" = "1" ]; then
+            CHECK_CMD="pgrep_loose"
+            return 0
+        fi
+    fi
+
+    if command -v pidof >/dev/null 2>&1; then
+        all_pids=$(pidof init 2>/dev/null)
+        set -- $all_pids
+        if [ "$1" = "1" ]; then
+            CHECK_CMD="pidof"
+            return 0
+        fi
+    fi
+
+    CHECK_CMD="none"
+    return 1
+}
+
+check_process() {
+    proc_name=$1
+    case "$CHECK_CMD" in
+        "pgrep_exact")
+            pgrep -x "$proc_name" >/dev/null 2>&1
+            return $?
+            ;;
+        "pgrep_loose")
+            all_pids=$(pgrep "$proc_name" 2>/dev/null)
+            if [ -n "$all_pids" ]; then return 0; else return 1; fi
+            ;;
+        "pidof")
+            pidof "$proc_name" >/dev/null 2>&1
+            return $?
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 start_time=$(date +%s)
 
 while [ "$boot_completed" != "1" ]; do
     current_time=$(date +%s)
     elapsed=$((current_time - start_time))
+    
     if [ "$elapsed" -ge "$timeout" ]; then
         log "Boot did NOT complete within $timeout seconds."
         log "Debug Info: loops=$loops, threshold=$threshold, disable_mode=$disable_mode"
@@ -32,6 +85,7 @@ while [ "$boot_completed" != "1" ]; do
         fi
         handle_boot_loop
     fi
+    
     boot_completed=$(getprop sys.boot_completed)
     [ "$boot_completed" = "1" ] && break
     log "Device is not completely booted yet. Waiting... ($elapsed/$timeout)"
@@ -44,31 +98,24 @@ elapsed=$((end_time - start_time))
 log "Device is completely booted."
 log "Boot completed in ${elapsed}s"
 
-if ! command -v pgrep >/dev/null 2>&1; then
-    log "CRITICAL: 'pgrep' command not found. Cannot verify system stability."
+if ! validate_tools; then
+    log "CRITICAL: Tool validation failed. Cannot verify system stability."
     log "Triggering protection as a precaution, as stability cannot be confirmed."
     modify_prop "+" "loops"
     handle_boot_loop
     exit 1
 else
-    log "'pgrep' command found."
-fi
-
-sf_check_method="pgrep"
-if command -v service >/dev/null 2>&1; then
-    log "'service' command found. Using 'service check' for surfaceflinger."
-    sf_check_method="service"
-else
-    log "'service' command NOT found. Falling back to 'pgrep' for surfaceflinger."
+    log "Tool validation passed. Using method: $CHECK_CMD"
 fi
 
 log "Starting post-boot stability monitoring for ${stability_time}s..."
+
 stability_start=$(date +%s)
 stability_end=$((stability_start + stability_time))
 current_time=$stability_start
 check_interval=3
 consecutive_failures=0
-failure_threshold=3
+failure_threshold=5
 
 while [ "$current_time" -lt "$stability_end" ]; do
     if ! getprop sys.boot.reason >/dev/null 2>/dev/null; then
@@ -79,17 +126,12 @@ while [ "$current_time" -lt "$stability_end" ]; do
     fi
 
     log "Stability Check: Running checks..."
-    
-    ss_output=$(pgrep -x system_server 2>&1)
+
+    check_process "system_server"
     ss_status=$?
     
-    if [ "$sf_check_method" = "service" ]; then
-        sf_output=$(service check surfaceflinger 2>&1)
-        sf_status=$?
-    else
-        sf_output=$(pgrep -x surfaceflinger 2>&1)
-        sf_status=$?
-    fi
+    check_process "surfaceflinger"
+    sf_status=$?
 
     if [ $ss_status -eq 0 ] && [ $sf_status -eq 0 ]; then
         if [ $consecutive_failures -gt 0 ]; then
@@ -98,26 +140,18 @@ while [ "$current_time" -lt "$stability_end" ]; do
         consecutive_failures=0
     else
         consecutive_failures=$((consecutive_failures + 1))
-        log "Stability WARNING: Failure $consecutive_failures/$failure_threshold."
+        log "Stability WARNING: Failure $consecutive_failures/$failure_threshold"
         
         if [ $ss_status -ne 0 ]; then
-            log "system_server check FAILED. Exit code: $ss_status. Output/Error: $ss_output"
+            log "system_server check FAILED."
         else
-            log "system_server check PASSED. (PID: $ss_output)"
+            log "system_server check PASSED."
         fi
         
         if [ $sf_status -ne 0 ]; then
-            if [ "$sf_check_method" = "service" ]; then
-                log "surfaceflinger (service check) FAILED. Exit code: $sf_status. Output/Error: $sf_output"
-            else
-                log "surfaceflinger (pgrep check) FAILED. Exit code: $sf_status. Output/Error: $sf_output"
-            fi
+            log "surfaceflinger check FAILED."
         else
-            if [ "$sf_check_method" = "service" ]; then
-                log "surfaceflinger (service check) PASSED. (Output: $sf_output)"
-            else
-                log "surfaceflinger (pgrep check) PASSED. (PID: $sf_output)"
-            fi
+            log "surfaceflinger check PASSED."
         fi
     fi
 
@@ -139,7 +173,6 @@ while [ "$current_time" -lt "$stability_end" ]; do
 done
 
 log "All stability checks passed. Device is stable."
-
 log "Checking the current loop value ($loops)"
 
 new_timeout=$((elapsed + 15))
@@ -148,46 +181,54 @@ modify_prop "timeout" "$new_timeout"
 log "Boot was successful. Updated timeout to $new_timeout"
 
 if [ -f "$TMP_FILE" ]; then
-    if [ -d "$mdir" ]; then
-        log "Saving new module list before updating history."
-    fi
+    log "Starting module comparison process..."
     
     if [ -f "$MODULE_LIST" ]; then
-        changed_modules=$(
-            "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
-              ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
-              ($new[0] | map({key: .id, value: .}) | from_entries) as $newmap |
-              ($newmap | to_entries[] | .key as $key | .value as $n |
-              ($oldmap[$key] // null) as $o |
-              if $o == null then
-                "ADDED: \($n.name) (\($n.id)) version:\($n.version) (\($n.status))"
-              elif $n.version != $o.version or $n.versionCode != $o.versionCode or $n.name != $o.name then
-                "UPDATED: \($n.name) (\($n.id)) version:\($o.version)->\($n.version) \($o.status)->\($n.status)"
-              elif $n.status != $o.status then
-                "STATUS: \($n.name) (\($n.id)) \($o.status)->\($n.status)"
-              elif $n.size != $o.size then
-                "SIZE CHANGED: \($n.name) (\($n.id)) size:\($o.size)->\($n.size) (\($n.status))"
-              else
-                empty
-              end),
-              ($oldmap | to_entries[] | .key as $key .value as $o |
-              ($newmap[$key] // null) as $n |
-              if $n == null then
-                "REMOVED: \($o.name) (\($o.id)) version:\($o.version) (\($o.status))"
-              else
-                empty
-              end)
-            ' 2>/dev/null
-        )
+        log "Previous module list found. Comparing modules..."
+        
+        jq_output=$("$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
+          ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
+          ($new[0] | map({key: .id, value: .}) | from_entries) as $newmap |
+          ($newmap | to_entries[] | .key as $key | .value as $n |
+          ($oldmap[$key] // null) as $o |
+          if $o == null then
+            "Added: \($n.name) (\($n.id)) version:\($n.version) (\($n.status))"
+          elif $n.version != $o.version or $n.versionCode != $o.versionCode or $n.name != $o.name then
+            "Updated: \($n.name) (\($n.id)) version:\($o.version)->\($n.version) \($o.status)->\($n.status)"
+          elif $n.status != $o.status then
+            "Status: \($n.name) (\($n.id)) \($o.status)->\($n.status)"
+          elif $n.size != $o.size then
+            "Size Changed: \($n.name) (\($n.id)) size:\($o.size)->\($n.size) (\($n.status))"
+          else
+            empty
+          end),
+          ($oldmap | to_entries[] | .key as $key | .value as $o |
+          ($newmap[$key] // null) as $n |
+          if $n == null then
+            "Removed: \($o.name) (\($o.id)) version:\($o.version) (\($o.status))"
+          else
+            empty
+          end)
+        ' 2>&1)
+        
+        jq_exit_code=$?
+        
+        if [ $jq_exit_code -ne 0 ]; then
+            log "ERROR: jq command failed with exit code $jq_exit_code"
+            log "jq output: $jq_output"
+        else
+            log "jq command executed successfully"
+            changed_modules="$jq_output"
+        fi
         
         if [ -n "$changed_modules" ]; then
             log "Module changes detected:"
             printf '%s\n' "$changed_modules" | while IFS= read -r change; do
-                log "$change"
+                log "  $change"
             done
             log "Updating module version history due to detected changes."
             if mv -f "$TMP_FILE" "$MODULE_LIST"; then
-                log "Module version history updated"
+                log "Module version history updated successfully"
             else
                 log "Failed to update module version history"
             fi
@@ -199,11 +240,13 @@ if [ -f "$TMP_FILE" ]; then
     else
         log "No previous module list found. Creating new one."
         if mv -f "$TMP_FILE" "$MODULE_LIST"; then
-            log "Module version history created"
+            log "Module version history created successfully"
         else
             log "Failed to create module version history"
         fi
     fi
+else
+    log "WARNING: Temporary module file not found at $TMP_FILE"
 fi
 
 modify_prop "loops" "0"

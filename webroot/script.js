@@ -713,7 +713,7 @@ class AshLooperWebUI {
                 <strong>Important Settings Limits:</strong><br>
                 • Timeout: Can only decrease by max 10 seconds<br>
                 • Threshold: Must be between 1-5<br>
-                • Stability Time: Must be between 50-120 seconds.
+                • Stability Time: Must be between 10-40 seconds.
             </div>
         `;
         settingsContent.appendChild(warningDiv);
@@ -749,10 +749,10 @@ class AshLooperWebUI {
                 label: 'Stability Time (seconds)', 
                 editable: true,
                 type: 'number',
-                min: 50,
-                max: 120,
+                min: 20,
+                max: 40,
                 step: 1,
-                description: 'Range: 50 - 120 seconds'
+                description: 'Range: 10 - 40 seconds'
             }
         ];
 
@@ -894,7 +894,7 @@ class AshLooperWebUI {
                 return numValue >= 1 && numValue <= 5;
                 
             case 'stability_time':
-                return numValue >= 50 && numValue <= 120;
+                return numValue >= 10 && numValue <= 40;
                 
             default:
                 return true;
@@ -930,11 +930,11 @@ class AshLooperWebUI {
                 break;
 
             case 'stability_time':
-                if (numValue < 50) {
-                    return 'Stability Time cannot be less than 50 seconds';
+                if (numValue < 10) {
+                    return 'Stability Time cannot be less than 10 seconds';
                 }
-                if (numValue > 120) {
-                    return 'Stability Time cannot exceed 120 seconds';
+                if (numValue > 40) {
+                    return 'Stability Time cannot exceed 40 seconds';
                 }
                 break;
         }

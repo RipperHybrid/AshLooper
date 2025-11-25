@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# AshReXcue Uninstall Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
+# AshReXcue Core Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
 
 MODULE_PROP="$MODPATH/module.prop"
 mdir="/data/adb/modules"
@@ -234,7 +234,8 @@ disable_new_mods() {
             '
         )
 
-        log "Changed/Added modules detected: $changed_ids"
+        formatted_log=$(echo "$changed_ids" | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
+        log "Changed/Added modules detected: $formatted_log"
 
         if [ -n "$changed_ids" ]; then
             log "Detected problematic modules. Starting disable process."
@@ -282,7 +283,7 @@ handle_boot_loop() {
                 lockdown
                 ;;
             "full")
-                log "Well, you're fucked ¯\\_(ツ)_/¯"
+                log "Well, you're fu*ked ¯\\_(ツ)_/¯"
                 log "Full protection enabled but bootloop still occurred"
                 log "Disabling AshReXcue module."
                 touch "$MODPATH/disable"
