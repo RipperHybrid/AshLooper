@@ -1,6 +1,6 @@
 # AshReXcue - Bootloop Protector
 
-<p align="center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="60%" alt="AshLooper Banner">
   <br>
   <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%26%20Forks-blueviolet" alt="Compatibility Badge">
@@ -26,7 +26,7 @@
   <a href="https://github.com/RipperHybrid/AshLooper/releases">
     <img src="https://img.shields.io/github/downloads/RipperHybrid/AshLooper/total?label=Total%20Downloads&logo=github&logoColor=orange&color=18673F&labelColor=2E2E3F&style=flat" alt="Total Downloads">
   </a>
-</p>
+</div>
 
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Orbitron&weight=500&pause=1000&color=41F791&center=true&vCenter=true&width=935&height=70&lines=Advanced+Bootloop+Protection;Now+featuring+a+full+WebUI!;Smart+Detection+%26+Stability+Checks;Native+Magisk,+KernelSU+%26+Forks+Support)](https://git.io/typing-svg)
 
