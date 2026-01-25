@@ -1,0 +1,169 @@
+#!/system/bin/sh
+
+# AshReXcue WebUI Command Executor - Sandbox Mode
+
+# --- 1. Setup Environment ---
+BB_CANDIDATES="/data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox"
+BB=""
+for candidate in $BB_CANDIDATES; do
+    [ -x "$candidate" ] && BB="$candidate" && break
+done
+[ -z "$BB" ] && BB="busybox"
+
+# Authentication
+TOKEN_FILE="../nexus/uplink_key"
+[ ! -f "$TOKEN_FILE" ] && exit 1
+REAL_TOKEN=$(cat "$TOKEN_FILE" 2>/dev/null)
+INCOMING_TOKEN=$(echo "$HTTP_X_ASH_TOKEN" | tr -d '[:space:]')
+[ "$INCOMING_TOKEN" != "$REAL_TOKEN" ] && exit 1
+
+# Session Heartbeat
+[ -f "../../.session_state" ] && echo "$(cat ../nexus/server_port) $(($(date +%s) + 300)) $(date +%s)" > "../../.session_state"
+
+# --- 2. Sandbox Logic ---
+SAFE_DIRS="/cache/looper/ /data/adb/modules/AshLooper/ /data/local/tmp/ /storage/emulated/0/Download/"
+
+is_safe_path() {
+    local check_path="$1"
+    case "$check_path" in *..*) return 1 ;; esac
+    for safe_dir in $SAFE_DIRS; do
+        case "$check_path" in "$safe_dir"*) return 0 ;; esac
+    done
+    return 1
+}
+
+# --- 3. Execute Command ---
+RAW_CMD=$(cat)
+OUTPUT=""
+VERB=$(echo "$RAW_CMD" | awk '{print $1}')
+
+case "$VERB" in
+    # --- Simple File Operations ---
+    ls|cat|rm)
+        CLEAN_CMD=$(echo "$RAW_CMD" | sed -E 's/^(ls -1|ls|cat|rm) //')
+        FILE=$(echo "$CLEAN_CMD" | tr -d '"' | tr -d "'")
+        
+        if is_safe_path "$FILE"; then
+            OUTPUT=$($BB $RAW_CMD 2>&1)
+        else
+            OUTPUT="Access Denied: Path restricted ($FILE)"
+        fi
+        ;;
+
+    # --- Copy / Move (Using Safe Copy Strategy) ---
+    cp|mv)
+        SRC_RAW=$(echo "$RAW_CMD" | awk '{print $2}')
+        DST_RAW=$(echo "$RAW_CMD" | awk '{print $3}')
+        
+        SRC=$(echo "$SRC_RAW" | tr -d '"' | tr -d "'")
+        DST=$(echo "$DST_RAW" | tr -d '"' | tr -d "'")
+        
+        if is_safe_path "$SRC" && is_safe_path "$DST"; then
+            if [ ! -f "$SRC" ]; then
+                OUTPUT="Error: Source file not found"
+            else
+                # Use cat > dest instead of cp to avoid permission issues on /storage
+                $BB cat "$SRC" > "$DST" 2>/dev/null
+                
+                # Check if copy really happened
+                if [ -s "$DST" ]; then
+                    # Fix permissions
+                    case "$DST" in "/storage/emulated/0/"*)
+                        chmod 644 "$DST" 2>/dev/null
+                        ;;
+                    esac
+                    
+                    # If it was a move, delete source
+                    if [ "$VERB" = "mv" ]; then
+                        rm "$SRC"
+                    fi
+                    OUTPUT="Operation success"
+                else
+                    # Fallback to standard cp if cat failed
+                    $BB cp "$SRC" "$DST" 2>&1
+                    if [ -s "$DST" ]; then
+                         OUTPUT="Operation success"
+                    else
+                         OUTPUT="Failed: Destination file is empty or missing"
+                    fi
+                fi
+            fi
+        else
+            OUTPUT="Access Denied: Restricted path"
+        fi
+        ;;
+
+    # --- Settings & Log Extraction ---
+    sed|echo)
+        TARGET_SETTINGS="/data/adb/modules/AshLooper/settings.prop"
+        
+        # 1. Settings Modification
+        if echo "$RAW_CMD" | grep -q "$TARGET_SETTINGS"; then
+            if [ "$VERB" = "echo" ]; then
+                CONTENT=$(echo "$RAW_CMD" | cut -d'"' -f2)
+                echo "$CONTENT" >> "$TARGET_SETTINGS"
+            else
+                EXPR=$(echo "$RAW_CMD" | cut -d'"' -f2)
+                $BB sed -i "$EXPR" "$TARGET_SETTINGS"
+            fi
+            OUTPUT="Settings Updated"
+
+        # 2. Log Extraction (Specific Sessions)
+        elif [ "$VERB" = "sed" ] && echo "$RAW_CMD" | grep -q " -n "; then
+            OUT_FILE=${RAW_CMD##*> }
+            OUT_FILE_CLEAN=$(echo "$OUT_FILE" | tr -d '"' | tr -d "'")
+            
+            if is_safe_path "$OUT_FILE_CLEAN"; then
+                # Run the sed command
+                $BB sh -c "$RAW_CMD" 2>&1
+                
+                # Verify it worked
+                if [ -s "$OUT_FILE_CLEAN" ]; then
+                    OUTPUT="Log extracted"
+                else
+                    OUTPUT="Error: Extracted log is empty"
+                fi
+            else
+                OUTPUT="Access Denied: Unsafe output path"
+            fi
+        else
+            OUTPUT="Access Denied: Invalid sed/echo operation"
+        fi
+        ;;
+
+    # --- Temp Files ---
+    printf)
+        FILE=${RAW_CMD##*> }
+        FILE_CLEAN=$(echo "$FILE" | tr -d '"' | tr -d "'")
+        if is_safe_path "$FILE_CLEAN"; then
+            sh -c "$RAW_CMD" 2>&1
+            OUTPUT="Temp file created"
+        else
+            OUTPUT="Access Denied"
+        fi
+        ;;
+
+    # --- System ---
+    date|uptime) OUTPUT=$($BB $VERB 2>&1) ;;
+    pgrep|pkill) 
+        if echo "$RAW_CMD" | grep -q "httpd -p 127.0.0.1:"; then
+            $BB $RAW_CMD 2>&1
+            [ "$VERB" = "pkill" ] && OUTPUT="Service Stopped"
+        else
+             OUTPUT="Access Denied"
+        fi
+        ;;
+    *) OUTPUT="Unknown Command" ;;
+esac
+
+# --- 4. JSON Response ---
+echo "Content-Type: application/json"
+echo "Cache-Control: no-store"
+echo ""
+JQ_PATH="/data/adb/modules/AshLooper/jq/jq"
+if [ -f "$JQ_PATH" ] && [ -x "$JQ_PATH" ]; then
+    printf '%s' "$OUTPUT" | "$JQ_PATH" -Rs --argjson code "0" '{code: $code, stdout: .}'
+else
+    JSON_OUTPUT=$(printf '%s' "$OUTPUT" | sed -e ':a;N;$!ba;s/\n/\\n/g' -e 's/"/\\"/g' -e 's/\\/\\\\/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g')
+    printf '{"code": 0, "stdout": "%s"}\n' "$JSON_OUTPUT"
+fi

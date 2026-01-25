@@ -1,7 +1,7 @@
 # AshReXcue - Bootloop Protector
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="60%" alt="AshLooper Banner">
+  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="40%" alt="AshLooper Banner">
   <br>
   <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%26%20Forks-blueviolet" alt="Compatibility Badge">
   <br>
@@ -34,108 +34,82 @@
 
 ## 📖 About
 
-> **⚠️ Notice: Resilience & Backup Plans**
-> Following a recent temporary suspension of this account, I have updated the infrastructure to prevent future disruptions:
-> 
-> 1.  **Updates:** The update check has moved to **Cloudflare**. Your module will check for updates reliably, regardless of GitHub's status.
-> 2.  **Mirrors:** This repository is fully synchronized with [**GitLab**](https://gitlab.com/RipperHybrid/AshLooper).
->
-> If this page is ever down, please check the GitLab link for the latest releases.
+**AshReXcue** (formerly AshLooper) is a sophisticated boot protection module designed for **Magisk**, **KernelSU**, **APatch**, and their various **Forks**.
 
-**AshReXcue** (formerly AshLooper) is a sophisticated boot protection module designed for **Magisk**, **KernelSU**, and their various **Forks**.
+Unlike basic bootloop protectors, AshReXcue uses **Smart Detection** to identify recently added or modified modules and targets them first. It features a fully interactive **WebUI Dashboard** with secure session management for viewing logs and adjusting protection settings.
 
-Unlike basic bootloop protectors that simply disable all modules upon a failed boot, AshReXcue uses **Smart Detection** to identify recently added or modified modules and targets them first. It features a fully interactive **WebUI Dashboard** embedded directly in your root manager, allowing you to view logs, manage protection settings, and analyze boot sessions without leaving the app.
-
-> **🧪 Help Me Expand Compatibility**
-> If your root solution (or specific fork) is not listed or supported, **please open an issue or reach out!** I am looking for testers to help verify and add compatibility for other root environments.
+**📚 [Read Full Documentation & Features](.github/resources/feature.md)**
 
 ---
 
 ## ✨ Key Features
 
-### 🛡️ Intelligent Protection
-* **Smart Differential Analysis:** Maintains a history of your installed modules. If a bootloop occurs, it compares the current state to the last successful boot to pinpoint *new* or *changed* modules.
-* **Stability Monitoring:** Doesn't just wait for `sys.boot_completed`. It monitors critical system processes (`system_server`, `surfaceflinger`) for a user-defined stability period (default 20s) to ensure the device is actually usable, not just "booted".
-* **Dynamic Timeout:** Automatically adjusts the boot timeout limit based on your device's actual boot speed.
-
-### 💻 Modern WebUI Dashboard
-* **Live Log Viewer:** Read protection logs directly in the app with syntax highlighting.
-* **Session History:** Browse previous boot sessions (Successful vs. Failed/Incomplete).
-* **Theming:** Switch between **Dark**, **Light**, and **Retro (Amber CRT)** themes.
-* **Settings Management:** Adjust timeout, threshold, and stability time via a graphical interface.
-* **File Management:** Copy logs to clipboard or save them to `/storage/emulated/0/Download/`.
-
-### ⚙️ Configurable Modes
-During installation (via Volume Keys), you can choose:
-1.  **Disable Modules:** Disables problematic modules and reboots normally.
-2.  **Disable & Recovery:** Disables problematic modules and reboots into Recovery mode.
+- 🛡️ **Smart Differential Analysis** - Targets only new/changed modules using jq-powered comparison
+- 💻 **Modern WebUI Dashboard** - Live logs, session history, and real-time settings management
+- 🔒 **Secure WebUI Sessions** - Random ports, unique tokens, auto-timeout (5min max / 2min idle)
+- ⚙️ **Configurable Protection Modes** - Standard (Disable) or Nuclear (Disable + Recovery)
+- 📊 **Multi-Boot Session Tracking** - View individual boot sessions with RTC status validation
+- 🎨 **Dark Retro Theme** - Amber CRT-style terminal interface
+- 🔧 **Advanced Stability Monitoring** - System process verification with configurable checks
 
 ---
 
 ## 📥 Installation
 
-1.  Open **Magisk**, **KernelSU**, or your **Fork Manager**.
-2.  Install the `AshReXcue` zip file.
-3.  **Follow the Volume Key instructions** in the terminal:
-    * **Step 1:** Select Protection Mode (Disable Only vs. Disable + Recovery).
-    * **Step 2:** Select Loop Threshold (How many failed boots trigger protection).
-4.  Reboot your device.
+1. Open **Magisk**, **KernelSU**, **APatch**, or your **Fork Manager**
+2. Install the `AshReXcue` zip file
+3. **Follow the Volume Key instructions:**
+   - **Step 1:** Select Protection Mode (Standard or Nuclear)
+   - **Step 2:** Select Loop Threshold (1-4 boots)
+   - **Step 3:** System calibration (automatic)
+   - **Step 4:** Enable/Disable Advanced Stability Monitoring
+4. Reboot your device
 
 ---
 
-## 🛠️ How It Works
+## 🖥️ Dashboard Access
 
-1.  **Boot Start:** AshReXcue initializes early in `post-fs-data`.
-2.  **Monitoring:** It waits for the boot to complete within the defined `timeout`.
-3.  **Stability Check:** Once booted, it monitors system stability for the configured time (`stability_time`).
-4.  **Success:** If stable, it saves the current list of modules as a "Known Good" state.
-5.  **Failure:**
-    * **Threshold Not Reached:** Increments loop counter.
-    * **Threshold Reached:**
-        1.  Checks for **New/Changed** modules since the last good boot.
-        2.  **Targeted Strike:** Disables *only* those suspicious modules.
-        3.  **Lockdown:** If no changes are detected but loops continue, it disables *all* modules (except itself) to save the device.
+Access the WebUI dashboard through your module manager's "Open" button or via terminal action script.
 
----
+**Security Features:**
+- Localhost-only access (127.0.0.1)
+- Randomized port (6000-10000 range)
+- Unique session token authentication
+- Auto-shutdown: 5 minutes maximum or 2 minutes idle
+- Activity heartbeat tracking
 
-## 🖥️ Dashboard & Settings
-
-Access the dashboard via your Root Manager's module list (WebUI support required, e.g., KernelSU Next).
-
-### Adjustable Settings
-You can modify these values safely through the WebUI:
-
-| Setting | Default | Range | Description |
-| :--- | :--- | :--- | :--- |
-| **Timeout** | 60s | 20s - 300s | Maximum time allowed for the device to boot before protection kicks in. |
-| **Threshold** | User Set | 1 - 5 | Number of failed boots allowed before modules are disabled. |
-| **Stability** | 20s | 10s - 40s | How long to monitor `system_server` after boot to ensure no crashes occur. |
-
-> **⚠️ Note:** The system prevents lowering the Timeout by more than 10 seconds at a time to prevent accidental loops caused by aggressive settings.
+**Dashboard Features:**
+- 📋 **Session Browser** - View individual boot sessions with status indicators
+- 📊 **Live Log Viewer** - Color-coded logs with syntax highlighting
+- ⚙️ **Settings Editor** - Adjust timeout, threshold, and stability time
+- 💾 **Export Options** - Copy to clipboard or save to Downloads
+- 🔍 **Log Filtering** - Real-time search through log content
 
 ---
 
-## 📂 Logs & Debugging
+## 📂 Important Notices
 
-AshReXcue keeps detailed logs of every boot session.
-
-* **Log Location:** `/cache/looper/`
-* **Log Format:** `AshReXcueSession-YYYY-MM-DD.log`
-* **History:** Retains the last 10 boot sessions.
-
-You can easily export these logs via the WebUI by clicking the **Save** or **Copy** icons.
+> **⚠️ Backup & Mirrors**
+> 
+> - **Updates:** Now hosted on **Cloudflare** for reliability
+> - **Mirror:** Full sync available at [**GitLab**](https://gitlab.com/RipperHybrid/AshLooper)
+> 
+> **🧪 Need Help With Compatibility?**
+> If your root solution isn't supported, please open an issue!
 
 ---
 
 ## 🤝 Credits
-- **jq Binary** – [jq](https://jqlang.org)
-- **Cloudflare** – [Pages](https://pages.cloudflare.com/) (Web Page Hosting & Update System)
+
+- **jq Binary** – [jq](https://jqlang.org) - JSON processing for module comparison
+- **Cloudflare** – [Pages](https://pages.cloudflare.com/) (Hosting & Updates)
 
 ## 👤 Author
-- **AshBorn** - ([@RipperHybrid](https://github.com/RipperHybrid))
+
+- **AshBorn** - [@RipperHybrid](https://github.com/RipperHybrid)
 
 ---
 
 <div align="center">
-    <sub>Powered by <strong>Cloudflare</strong> • Stay Protected by <strong>AshReXcue</strong></sub>
+    <sub>Powered by <strong>AshReXcue</strong></sub>
 </div>

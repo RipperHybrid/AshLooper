@@ -1,19 +1,20 @@
 #!/system/bin/sh
-# AshReXcue Core Logic - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
 
-MODULE_PROP="$MODPATH/module.prop"
+SETTINGS="$MODPATH/settings.prop"
 mdir="/data/adb/modules"
 LOG_DIR="/cache/looper"
 ASHLOOPER_DIR="/data/adb/ashlooper"
-LOG_HISTORY=10
 TMP_FILE="$ASHLOOPER_DIR/tmp_modules.json"
 MODULE_LIST="$ASHLOOPER_DIR/module.json"
 JQ="$MODPATH/jq/jq"
 boot_completed=0
 
 chooseport() {
+  # Original idea by chainfire and ianmacd @xda-developers
   [ "$1" ] && local delay=$1 || local delay=10
   local error=false 
+  if [ -z "$TMPDIR" ]; then TMPDIR="/data/local/tmp"; fi
+  mkdir -p "$TMPDIR"
   while true; do
     local count=0
     while true; do
@@ -27,113 +28,199 @@ chooseport() {
       [ $count -gt 12 ] && break
     done
     if $error; then
-      logger "  >[Volume key not detected. Aborting]< "
+      echo "  >[Volume key not detected. Aborting]< "
       abort
     else
       error=true
-      logger "  >[Volume key not detected. Try again]< "
+      echo "  >[Volume key not detected. Try again]< "
     fi
   done
 }
 
 delete() { rm -f "$@"; }
-
 delete_recursive() { rm -rf "$@"; }
 
 [ -d /data/adb/ksu ] || [ -f /data/adb/ksu/ksu ] && KSU=1
-
 [ -d /data/adb/magisk ] || [ -f /data/adb/magisk/magisk ] && MAGISK=1
+[ -f /data/adb/apd ] && [ -d /data/adb/ap ] && APATCH=1
 
-if [ "$KSU" ] && [ "$MAGISK" ]; then
-    method="KernelSU+Magisk"
-elif [ "$KSU" ]; then
+if [ "$KSU" ]; then
     method="KernelSU"
+elif [ "$APATCH" ]; then
+    method="APatch"
 elif [ "$MAGISK" ]; then
     method="Magisk"
 else
-    ui_print "✘ ERROR: KernelSU/Magisk not detected!"
-    ui_print "  This module requires a supported root solution."
-    abort
+    if [ -w "/data/adb/modules" ]; then
+        method="Unknown Root"
+    else
+        ui_print "✘ ERROR: Root solution not detected!"
+        abort
+    fi
 fi
 
-log() {
-    echo "$(date '+%d.%m.%y %T'): >[$1]<" >> "$LOG_FILE"
-    echo "" >> "$LOG_FILE"
+get_root_version() {
+    local version=""
+    
+    if [ "$APATCH" ]; then
+        version=$(/data/adb/apd -V 2>/dev/null | head -n 1)
+    fi
+    
+    if [ "$KSU" ]; then
+        local ksu_ver=$(/data/adb/ksud -V 2>/dev/null | head -n 1)
+        if [ -n "$version" ]; then
+            version="$version | $ksu_ver"
+        else
+            version="$ksu_ver"
+        fi
+    fi
+    
+    if [ "$MAGISK" ]; then
+        local magisk_name=$(/data/adb/magisk/magisk -v 2>/dev/null | head -n 1)
+        local magisk_code=$(/data/adb/magisk/magisk -V 2>/dev/null | head -n 1)
+        local magisk_ver="${magisk_name} (${magisk_code})"
+        if [ -n "$version" ]; then
+            version="$version | $magisk_ver"
+        else
+            version="$magisk_ver"
+        fi
+    fi
+    
+    echo "${version:-Unknown}"
 }
 
-update_description() {
-    sed -i "s|^description=.*|description=$1|g" "$MODPATH/module.prop"
+get_prop() {
+    local prop="$1"
+    local target_file="${2:-$SETTINGS}"
+    
+    if [ ! -f "$target_file" ]; then
+        return 1
+    fi
+    
+    grep "^$prop=" "$target_file" | cut -d'=' -f2
 }
 
-rotate_logs() {
-    mkdir -p "$LOG_DIR"
-    
-    current_date=$(date '+%Y-%m-%d')
-    current_log="$LOG_DIR/AshReXcueSession-$current_date.log"
-    
-    if [ ! -f "$current_log" ]; then
-        all_logs=$(ls -1 "$LOG_DIR"/AshReXcue*.log 2>/dev/null | wc -l)
-        
-        if [ "$all_logs" -ge $LOG_HISTORY ]; then
-            oldest_log=$(ls -1tr "$LOG_DIR"/AshReXcue*.log 2>/dev/null | head -n 1)
-            if [ -n "$oldest_log" ]; then
-                rm -f "$oldest_log"
+modify_prop() {
+    local silent=false
+    if [ "$1" = "-s" ]; then
+        silent=true
+        shift
+    fi
+    local action="$1"
+    local value="$2"
+    local target_file="${3:-$SETTINGS}"
+
+    if [ ! -f "$target_file" ]; then
+        log "Error: File $target_file not found."
+        return 1
+    fi
+
+    if [ "$action" = "+" ]; then
+        if grep -q "^$value=" "$target_file"; then
+            current=$(grep "^$value=" "$target_file" | cut -d'=' -f2)
+            case "$current" in
+                ''|*[!0-9]*) current=0 ;;
+            esac
+            new_value=$((current + 1))
+            
+            sed -i "s~^$value=.*~$value=$new_value~" "$target_file" || return 1
+            
+            if [ "$silent" = false ]; then
+                log "Increased $value in $(basename "$target_file"): $current → $new_value"
+            fi
+        else
+            if [ "$silent" = false ]; then
+                log "Property $value not found in $(basename "$target_file"), skipping increment"
+            fi
+        fi
+    else
+        if grep -q "^$action=" "$target_file"; then
+            local safe_value=$(echo "$value" | sed 's/&/\\&/g')
+            sed -i "s~^$action=.*~$action=$safe_value~" "$target_file" || return 1
+            
+            if [ "$silent" = false ]; then
+                log "Set $action to $value in $(basename "$target_file")"
+            fi
+        else
+            if [ "$silent" = false ]; then
+                log "Property $action not found in $(basename "$target_file"), skipping set"
             fi
         fi
     fi
 }
 
 set_log_file() {
-    current_date=$(date '+%Y-%m-%d')
-    LOG_FILE="$LOG_DIR/AshReXcueSession-$current_date.log"
+    val=$(get_prop log)
+    if [ -z "$val" ]; then val="1-0"; fi
+    f=$(echo "$val" | cut -d'-' -f1)
+    LOG_FILE="$LOG_DIR/AshReXcueSession-$f.log"
+}
+
+rotate_logs() {
+    mkdir -p "$LOG_DIR"
+    
+    val=$(get_prop log)
+    if [ -z "$val" ]; then val="1-0"; fi
+
+    f=$(echo "$val" | cut -d'-' -f1)
+    b=$(echo "$val" | cut -d'-' -f2)
+
+    b=$((b + 1))
+    
+    if [ "$b" -gt 10 ]; then
+        b=1
+        f=$((f + 1))
+        
+        if [ "$f" -gt 10 ]; then
+            f=1
+        fi
+    fi
+
+    LOG_FILE="$LOG_DIR/AshReXcueSession-$f.log"
+
+    if [ "$b" -eq 1 ]; then
+        rm -f "$LOG_FILE"
+        touch "$LOG_FILE"
+    fi
+
+    CURRENT_BOOT="$b"
+    modify_prop -s "log" "$f-$b"
 }
 
 start_run() {
     mkdir -p "$ASHLOOPER_DIR"
     rotate_logs
-    set_log_file
+    
+    local current_date=$(date '+%Y-%m-%d' 2>/dev/null || echo "1970-01-01")
+    local current_full=$(date '+%d.%m.%y %T')
+    local install_date=$(get_prop install_date)
+    local rtc_status="CORRECT"
 
-    log "◆◆◆◆◆◆◆ NEW BOOT ◆◆◆◆◆◆◆◆"
+    if [ "$install_date" != "none" ] && [ "$install_date" != "unknown" ] && \
+       [ "$current_date" \< "$install_date" ]; then
+        rtc_status="BACKWARD ($current_date < $install_date)"
+    fi
+    log "◆◆◆◆◆◆◆ NEW BOOT $CURRENT_BOOT ◆◆◆◆◆◆◆◆"
     log "AshReXcue Process Started"
+    log "Date: $current_full | RTC Status: $rtc_status"
     log "Executing post-fs-data.sh"
     log "Running on $ROOT_TYPE"
+    ROOT_VERSION=$(get_root_version)
+    log "Root Version: $ROOT_VERSION"
     local boot_reason
     boot_reason=$(getprop sys.boot.reason 2>/dev/null)
     log "Boot reason: ${boot_reason:-Unknown}"
     log "Device: $(getprop ro.product.model 2>/dev/null || echo Unknown)"
     log "Android: $(getprop ro.build.version.release 2>/dev/null || echo Unknown)"
-    log "Module Version: $(get_prop version 2>/dev/null || echo Unknown)"
-    log "Module Version Code: $(get_prop versionCode 2>/dev/null || echo Unknown)"
+    log "Module Version: $(get_prop version "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
+    log "Module Version Code: $(get_prop versionCode "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
 }
 
-get_prop() {
-    grep "^$1=" "$MODULE_PROP" | cut -d'=' -f2
-}
-
-modify_prop() {
-    action="$1"
-    value="$2"
-
-    if [ "$action" = "+" ]; then
-        if grep -q "^$value=" "$MODULE_PROP"; then
-            current=$(grep "^$value=" "$MODULE_PROP" | cut -d'=' -f2)
-            case "$current" in
-                ''|*[!0-9]*) current=0 ;;
-            esac
-            new_value=$((current + 1))
-            sed -i "s/^$value=.*/$value=$new_value/" "$MODULE_PROP" || return 1
-            log "Increased $value: $current → $new_value"
-        else
-            log "Property $value not found, skipping increment"
-        fi
-    else
-        if grep -q "^$action=" "$MODULE_PROP"; then
-            sed -i "s/^$action=.*/$action=$value/" "$MODULE_PROP" || return 1
-            log "Set $action to $value"
-        else
-            log "Property $action not found, skipping set"
-        fi
-    fi
+log() {
+    if [ -z "$LOG_FILE" ]; then set_log_file; fi
+    local timestamp=$(date '+%T') 
+    echo "[$timestamp] >[$1]<" >> "$LOG_FILE"
+    echo "" >> "$LOG_FILE"
 }
 
 list_modules() {
@@ -154,27 +241,31 @@ list_modules() {
 
 lockdown() {
     local MODE=$(get_prop "mode")
+    local LOCKDOWN_TYPE="${1:-normal}"
     threshold=$(get_prop "threshold")
-    log "Threshold ($threshold) reached. Disabling non-protected modules..."
+    
+    if [ "$LOCKDOWN_TYPE" = "full" ]; then
+        log "Full Lockdown: Threshold ($threshold) reached. Disabling ALL modules including AshLooper..."
+    else
+        log "Threshold ($threshold) reached. Disabling non-protected modules..."
+    fi
 
     log "###########################"
     log "Lockdown Mode Activated"
-
     enabled_modules=0
     for module_folder in "$mdir"/*; do
         if [ -d "$module_folder" ]; then
             module_name=$(basename "$module_folder")
-            if [ "$module_name" != "AshLooper" ]; then
-                touch "$module_folder/disable"
-                log "Disabled module: $module_name"
-                enabled_modules=$((enabled_modules + 1))
+            if [ "$LOCKDOWN_TYPE" != "full" ] && [ "$module_name" = "AshLooper" ]; then
+                continue
             fi
+            touch "$module_folder/disable"
+            log "Disabled module: $module_name"
+            enabled_modules=$((enabled_modules + 1))
         fi
     done
-
     log "Total Disabled: $enabled_modules"
     log "###########################"
-
     modify_prop "loops" "0" 
     modify_prop "disable" "full"
     if [ "$MODE" = "2" ]; then
@@ -192,23 +283,29 @@ create_mod_list() {
     first=1
     for m in "$mdir"/*; do
         if [ -d "$m" ] && [ -f "$m/module.prop" ]; then
-            id=$(grep '^id=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
-            name=$(grep '^name=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
-            version=$(grep '^version=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
-            versionCode=$(grep '^versionCode=' "$m/module.prop" 2>/dev/null | cut -d'=' -f2)
-            
             size=$(du -s "$m" 2>/dev/null | cut -f1)
-
+            
             if [ -f "$m/disable" ]; then
                 status="disabled"
             else
                 status="enabled"
             fi
-            
-            [ $first -eq 0 ] && printf ',' >> "$TMP_FILE"
-            
-            printf '\n  {"id": "%s", "name": "%s", "version": "%s", "versionCode": "%s", "status": "%s", "size": "%s"}' "$id" "$name" "$version" "$versionCode" "$status" "$size" >> "$TMP_FILE"
-            
+
+            props=$(awk -F= '
+                {
+                    val=""; for(i=2;i<=NF;i++) val=(i==2? "" : val "=") $i;
+                    sub(/\r$/, "", val);
+                    sub(/[ \t]*$/, "", val);
+                    gsub(/"/, "\\\"", val);
+                    d[$1] = val;
+                }
+                END {
+                    printf "\"id\": \"%s\", \"name\": \"%s\", \"version\": \"%s\", \"versionCode\": \"%s\"", d["id"], d["name"], d["version"], d["versionCode"]
+                }
+            ' "$m/module.prop")
+
+            [ "$first" -eq 0 ] && printf ',' >> "$TMP_FILE"
+            printf '\n  {%s, "status": "%s", "size": "%s"}' "$props" "$status" "$size" >> "$TMP_FILE"
             first=0
         fi
     done
@@ -285,8 +382,8 @@ handle_boot_loop() {
             "full")
                 log "Well, you're fu*ked ¯\\_(ツ)_/¯"
                 log "Full protection enabled but bootloop still occurred"
-                log "Disabling AshReXcue module."
-                touch "$MODPATH/disable"
+                log "Disabling all modules including AshLooper."
+                lockdown "full"
                 ;;
             *)
                 log "Invalid protection mode - taking no action"

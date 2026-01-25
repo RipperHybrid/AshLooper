@@ -1,0 +1,12 @@
+# AshReXcue settings - Don't modify anything after this - By AshBorn (@Ripper_Hybrid)
+mode=none
+loops=0
+disable=none
+timeout=60
+threshold=none
+stability_time=10
+log=1-0
+check_ss=false
+check_sf=false
+install_date=none
+extra_stability=false

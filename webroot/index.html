@@ -6,7 +6,7 @@
     <title>AshLooper</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="dark-retro-mode">
     <div class="app">
         <header class="header">
             <div class="header-left">
@@ -15,7 +15,6 @@
             <div class="header-right">
                 <div class="header-right-content">
                     <span class="subtitle">Bootloop Protector</span>
-                    <button type="button" id="themeToggle" class="theme-btn" title="Toggle Theme" aria-label="Toggle theme"></button>
                 </div>
             </div>
         </header>
@@ -29,10 +28,10 @@
                     </button>
                     <div class="terminal-controls"></div>
                 </div>
-                <div class="terminal" id="terminal" role="log" aria-live="polite">
+                <div class="terminal" id="terminal">
                     <div class="terminal-output" id="terminalOutput">
                         <div class="welcome-message">
-                            <div>AshReXcue WebUI V2.1</div>
+                            <div>AshReXcue WebUI V2.2</div>
                             <div>Select a log file to view contents</div>
                         </div>
                     </div>
@@ -53,26 +52,15 @@
         <div class="popup">
             <div class="popup-header">
                 <h3>Select Log File</h3>
-                <button type="button" class="close-popup" aria-label="Close">&times;</button>
+                <button type="button" class="close-popup">&times;</button>
             </div>
             <div class="popup-content">
                 <div class="file-list" id="fileList"></div>
-                <button type="button" onclick="refreshLogs()" class="refresh-btn" id="refreshBtn">Refresh Files</button>
+                <button type="button" id="refreshBtn" class="refresh-btn">Refresh Files</button>
             </div>
         </div>
     </div>
-
-    <input type="file" id="fileInput" accept=".log,.txt" style="display: none;">
-
-    <script src="icons.js"></script>
-    <script src="script.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const logoContainer = document.getElementById('logoContainer');
-            if (logoContainer) {
-                logoContainer.innerHTML = AshLooperIcons.getLogo();
-            }
-        });
-    </script>
+ 
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

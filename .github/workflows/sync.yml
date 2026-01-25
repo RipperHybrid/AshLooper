@@ -1,4 +1,4 @@
-name: Sync to GitLab
+name: Sync and Release
 
 on:
   push:
@@ -20,3 +20,76 @@ jobs:
           git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@${{ env.TARGET_REPO }}
           git push gitlab --all --force
           git push gitlab --tags --force
+
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Metadata
+        id: metadata
+        run: |
+          VERSION=$(/usr/bin/jq -r '.version' update.json)
+          VERSION_CODE=$(/usr/bin/jq -r '.versionCode' update.json)
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "filename=AshReXcue_Bootloop_Protector_${VERSION}_${VERSION_CODE}.zip" >> $GITHUB_OUTPUT
+          
+          if [ -f "changelog.md" ]; then
+            echo "body_file=changelog.md" >> $GITHUB_OUTPUT
+          else
+            echo "$COMMIT_MSG" > release_msg.txt
+            echo "body_file=release_msg.txt" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release Zip
+        run: |
+          zip -r ${{ steps.metadata.outputs.filename }} \
+          jq \
+          META-INF \
+          webroot \
+          action.sh \
+          customize.sh \
+          func.sh \
+          module.prop \
+          post-fs-data.sh \
+          service.sh \
+          settings.prop \
+          uninstall.sh
+
+      - name: Check for Edit and Append Footer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.metadata.outputs.tag }}"
+          BODY_FILE="${{ steps.metadata.outputs.body_file }}"
+          
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG exists. Appending edited footer."
+            
+            NOW_DATE=$(date +'%Y-%m-%d')
+            NOW_TIME=$(date +'%H:%M:%S')
+            
+            echo "" >> "$BODY_FILE"
+            echo "- Edited: Date: $NOW_DATE Time: $NOW_TIME" >> "$BODY_FILE"
+          else
+            echo "New release. No footer added."
+          fi
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag }}
+          name: AshLooper Version ${{ steps.metadata.outputs.version }} Release
+          body_path: ${{ steps.metadata.outputs.body_file }}
+          files: ${{ steps.metadata.outputs.filename }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
