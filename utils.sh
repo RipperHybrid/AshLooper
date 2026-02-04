@@ -10,9 +10,8 @@ JQ="$MODPATH/jq/jq"
 boot_completed=0
 
 chooseport() {
-  # Original idea by chainfire and ianmacd @xda-developers
   [ "$1" ] && local delay=$1 || local delay=10
-  local error=false 
+  local error=false
   if [ -z "$TMPDIR" ]; then TMPDIR="/data/local/tmp"; fi
   mkdir -p "$TMPDIR"
   while true; do
@@ -61,11 +60,11 @@ fi
 
 get_root_version() {
     local version=""
-    
+
     if [ "$APATCH" ]; then
         version=$(/data/adb/apd -V 2>/dev/null | head -n 1)
     fi
-    
+
     if [ "$KSU" ]; then
         local ksu_ver=$(/data/adb/ksud -V 2>/dev/null | head -n 1)
         if [ -n "$version" ]; then
@@ -74,7 +73,7 @@ get_root_version() {
             version="$ksu_ver"
         fi
     fi
-    
+
     if [ "$MAGISK" ]; then
         local magisk_name=$(/data/adb/magisk/magisk -v 2>/dev/null | head -n 1)
         local magisk_code=$(/data/adb/magisk/magisk -V 2>/dev/null | head -n 1)
@@ -85,19 +84,23 @@ get_root_version() {
             version="$magisk_ver"
         fi
     fi
-    
+
     echo "${version:-Unknown}"
 }
 
 get_prop() {
     local prop="$1"
     local target_file="${2:-$SETTINGS}"
-    
+
     if [ ! -f "$target_file" ]; then
         return 1
     fi
-    
-    grep "^$prop=" "$target_file" | cut -d'=' -f2
+
+    local value=$(grep "^$prop=" "$target_file" 2>/dev/null | head -n 1 | cut -d'=' -f2-)
+
+    value=$(printf '%s' "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/\r$//')
+
+    printf '%s' "$value"
 }
 
 modify_prop() {
@@ -122,9 +125,9 @@ modify_prop() {
                 ''|*[!0-9]*) current=0 ;;
             esac
             new_value=$((current + 1))
-            
+
             sed -i "s~^$value=.*~$value=$new_value~" "$target_file" || return 1
-            
+
             if [ "$silent" = false ]; then
                 log "Increased $value in $(basename "$target_file"): $current → $new_value"
             fi
@@ -137,7 +140,7 @@ modify_prop() {
         if grep -q "^$action=" "$target_file"; then
             local safe_value=$(echo "$value" | sed 's/&/\\&/g')
             sed -i "s~^$action=.*~$action=$safe_value~" "$target_file" || return 1
-            
+
             if [ "$silent" = false ]; then
                 log "Set $action to $value in $(basename "$target_file")"
             fi
@@ -158,7 +161,7 @@ set_log_file() {
 
 rotate_logs() {
     mkdir -p "$LOG_DIR"
-    
+
     val=$(get_prop log)
     if [ -z "$val" ]; then val="1-0"; fi
 
@@ -166,11 +169,11 @@ rotate_logs() {
     b=$(echo "$val" | cut -d'-' -f2)
 
     b=$((b + 1))
-    
+
     if [ "$b" -gt 10 ]; then
         b=1
         f=$((f + 1))
-        
+
         if [ "$f" -gt 10 ]; then
             f=1
         fi
@@ -190,16 +193,22 @@ rotate_logs() {
 start_run() {
     mkdir -p "$ASHLOOPER_DIR"
     rotate_logs
-    
+
     local current_date=$(date '+%Y-%m-%d' 2>/dev/null || echo "1970-01-01")
     local current_full=$(date '+%d.%m.%y %T')
     local install_date=$(get_prop install_date)
     local rtc_status="CORRECT"
+    local mode=$(get_prop mode)
+    local disable=$(get_prop disable)
+    local check_ss=$(get_prop check_ss)
+    local check_sf=$(get_prop check_sf)
+    local extra_stability=$(get_prop extra_stability)
 
     if [ "$install_date" != "none" ] && [ "$install_date" != "unknown" ] && \
        [ "$current_date" \< "$install_date" ]; then
         rtc_status="BACKWARD ($current_date < $install_date)"
     fi
+
     log "◆◆◆◆◆◆◆ NEW BOOT $CURRENT_BOOT ◆◆◆◆◆◆◆◆"
     log "AshReXcue Process Started"
     log "Date: $current_full | RTC Status: $rtc_status"
@@ -214,11 +223,14 @@ start_run() {
     log "Android: $(getprop ro.build.version.release 2>/dev/null || echo Unknown)"
     log "Module Version: $(get_prop version "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
     log "Module Version Code: $(get_prop versionCode "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
+    log "Mode: $mode | Disable: $disable"
+    log "Check SS: $check_ss | Check SF: $check_sf"
+    log "Extra Stability: $extra_stability"
 }
 
 log() {
     if [ -z "$LOG_FILE" ]; then set_log_file; fi
-    local timestamp=$(date '+%T') 
+    local timestamp=$(date '+%T')
     echo "[$timestamp] >[$1]<" >> "$LOG_FILE"
     echo "" >> "$LOG_FILE"
 }
@@ -243,7 +255,7 @@ lockdown() {
     local MODE=$(get_prop "mode")
     local LOCKDOWN_TYPE="${1:-normal}"
     threshold=$(get_prop "threshold")
-    
+
     if [ "$LOCKDOWN_TYPE" = "full" ]; then
         log "Full Lockdown: Threshold ($threshold) reached. Disabling ALL modules including AshLooper..."
     else
@@ -266,7 +278,7 @@ lockdown() {
     done
     log "Total Disabled: $enabled_modules"
     log "###########################"
-    modify_prop "loops" "0" 
+    modify_prop "loops" "0"
     modify_prop "disable" "full"
     if [ "$MODE" = "2" ]; then
         log "Lockdown complete. Rebooting to recovery."
@@ -280,85 +292,101 @@ lockdown() {
 create_mod_list() {
     rm -f "$TMP_FILE"
     printf '[' > "$TMP_FILE"
-    first=1
-    for m in "$mdir"/*; do
-        if [ -d "$m" ] && [ -f "$m/module.prop" ]; then
-            size=$(du -s "$m" 2>/dev/null | cut -f1)
-            
-            if [ -f "$m/disable" ]; then
+    local first=1
+
+    for module_folder in "$mdir"/*; do
+        if [ -d "$module_folder" ]; then
+            size=$(du -s "$module_folder" 2>/dev/null | cut -f1)
+
+            if [ -f "$module_folder/disable" ]; then
                 status="disabled"
             else
                 status="enabled"
             fi
 
-            props=$(awk -F= '
-                {
-                    val=""; for(i=2;i<=NF;i++) val=(i==2? "" : val "=") $i;
-                    sub(/\r$/, "", val);
-                    sub(/[ \t]*$/, "", val);
-                    gsub(/"/, "\\\"", val);
-                    d[$1] = val;
-                }
-                END {
-                    printf "\"id\": \"%s\", \"name\": \"%s\", \"version\": \"%s\", \"versionCode\": \"%s\"", d["id"], d["name"], d["version"], d["versionCode"]
-                }
-            ' "$m/module.prop")
+            folder_name=$(basename "$module_folder")
+
+            id="$folder_name"
+            name="$folder_name"
+            version="unknown"
+            versionCode="0"
+
+            if [ -f "$module_folder/module.prop" ]; then
+                prop_id=$(get_prop "id" "$module_folder/module.prop")
+                prop_name=$(get_prop "name" "$module_folder/module.prop")
+                prop_version=$(get_prop "version" "$module_folder/module.prop")
+                prop_versionCode=$(get_prop "versionCode" "$module_folder/module.prop")
+
+                [ -n "$prop_id" ] && id="$prop_id"
+                [ -n "$prop_name" ] && name="$prop_name"
+                [ -n "$prop_version" ] && version="$prop_version"
+                [ -n "$prop_versionCode" ] && versionCode="$prop_versionCode"
+            fi
+
+            name=$(printf '%s' "$name" | sed 's/"/\\"/g')
+            version=$(printf '%s' "$version" | sed 's/"/\\"/g')
 
             [ "$first" -eq 0 ] && printf ',' >> "$TMP_FILE"
-            printf '\n  {%s, "status": "%s", "size": "%s"}' "$props" "$status" "$size" >> "$TMP_FILE"
+            printf '\n  {"id": "%s", "name": "%s", "version": "%s", "versionCode": "%s", "status": "%s", "size": "%s"}' "$id" "$name" "$version" "$versionCode" "$status" "$size" >> "$TMP_FILE"
             first=0
         fi
     done
+
     printf '\n]\n' >> "$TMP_FILE"
 }
 
 disable_new_mods() {
     local MODE=$(get_prop "mode")
+
     if [ ! -f "$MODULE_LIST" ]; then
         log "No previous module list found. Invoking lockdown."
         lockdown
-    else
-        changed_ids=$(
-            "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
-              ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
-              $new[0][] as $n |
-              ($oldmap[$n.id] // null) as $o |
-              if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
-                $n.id
-              else
-                empty
-              end
-            '
-        )
+        return
+    fi
 
-        formatted_log=$(echo "$changed_ids" | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
-        log "Changed/Added modules detected: $formatted_log"
+    changed_ids=$(
+        "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
+          ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
+          $new[0][] as $n |
+          ($oldmap[$n.id] // null) as $o |
+          if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
+            $n.id
+          else
+            empty
+          end
+        ' 2>/dev/null || echo ""
+    )
 
-        if [ -n "$changed_ids" ]; then
-            log "Detected problematic modules. Starting disable process."
-            printf '%s\n' "$changed_ids" | while IFS= read -r id; do
-                id=$(printf '%s' "$id" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/')
-                log "Checking: $mdir/$id"
-                if [ -d "$mdir/$id" ]; then
-                    touch "$mdir/$id/disable"
-                    log "Module disabled: $mdir/$id"
-                else
-                    log "Module folder not found: $mdir/$id"
-                fi
-            done
-            modify_prop "loops" "0"
-            modify_prop "disable" "partial"
-            if [ "$MODE" = "2" ]; then
-                log "Partial disable complete. Rebooting to recovery."
-                reboot recovery
-            else
-                log "Partial disable complete. Rebooting normally."
-                reboot
-            fi
+    if [ -z "$changed_ids" ]; then
+        log "No new/updated modules detected. Invoking lockdown."
+        lockdown
+        return
+    fi
+
+    formatted_log=$(printf '%s' "$changed_ids" | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g' 2>/dev/null || echo "format_failed")
+    log "Changed/Added modules detected: $formatted_log"
+    log "Starting disable process..."
+
+    printf '%s\n' "$changed_ids" | while IFS= read -r id || [ -n "$id" ]; do
+        id_clean=$(printf '%s' "$id" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/')
+
+        if [ -d "$mdir/$id_clean" ]; then
+            touch "$mdir/$id_clean/disable"
+            log "Module disabled: $mdir/$id_clean"
         else
-            log "No problematic modules detected; invoking lockdown."
-            lockdown
+            log "Module folder not found: $mdir/$id_clean"
         fi
+    done
+
+    modify_prop "loops" "0"
+    modify_prop "disable" "partial"
+
+    if [ "$MODE" = "2" ]; then
+        log "Partial disable complete. Rebooting to recovery."
+        reboot recovery
+    else
+        log "Partial disable complete. Rebooting normally."
+        reboot
     fi
 }
 

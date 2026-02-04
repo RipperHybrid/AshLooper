@@ -12,7 +12,7 @@ class AshLooperWebUI {
         this.moduleInfo = {};
         this.bootSessions = [];
         this.currentSessionIndex = -1;
-
+        this.settingsLoaded = false;
         this.fileManager = new FileManager(this);
         this.settingsManager = new SettingsManager(this);
 
@@ -21,22 +21,43 @@ class AshLooperWebUI {
 
     async init() {
         document.body.classList.add('dark-retro-mode');
-        
         this.setupEventListeners();
+        this.setupTabNavigation();
         this.setupRefreshButton();
         this.fileManager.loadLogFiles();
-        this.settingsManager.loadModuleData();
-        
+        await this.settingsManager.loadModuleData();
+
         const logo = document.getElementById('logoContainer');
         if(logo) logo.innerHTML = AshLooperIcons.getLogo();
 
-        Utils.updateConsole('AshReXcue WebUI V2.2 initialized');
+        Utils.updateConsole('AshReXcue WebUI V2.3 initialized');
         Utils.updateConsole("Your friendly neighborhood root savior.");
         Utils.updateConsole('Monitoring For Loops...');
-        
+
         await Utils.displayServerInfo();
-        
         Utils.showToast("Your friendly neighborhood root savior.");
+    }
+
+    setupTabNavigation() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.getAttribute('data-tab');
+
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                tabContents.forEach(content => content.classList.remove('active'));
+                document.getElementById(`${tabId}Tab`).classList.add('active');
+
+                if (tabId === 'settings' && !this.settingsLoaded) {
+                    this.settingsManager.loadSettingsTab();
+                    this.settingsLoaded = true;
+                }
+            });
+        });
     }
 
     setupRefreshButton() {
@@ -63,7 +84,6 @@ class AshLooperWebUI {
 
     setupTerminalControls() {
         const terminalControls = document.querySelector('.terminal-controls');
-        
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.placeholder = 'Filter logs...';
@@ -92,9 +112,6 @@ class AshLooperWebUI {
         createBtn(AshLooperIcons.getCopyIcon(), 'copy-btn', 'Copy', () => this.copyToClipboard());
         createBtn(AshLooperIcons.getClearIcon(), 'clear-btn', 'Clear', () => this.clearViewer());
         createBtn('📋 Sessions', 'session-btn', 'Sessions', () => this.showSessionSelector());
-        
-        const settingsBtn = createBtn(AshLooperIcons.getSettingsIcon(), 'settings-btn', 'Settings', () => this.settingsManager.showSettingsModal());
-        settingsBtn.style.display = 'flex';
     }
 
     togglePopup() { document.getElementById('filePopup').classList.toggle('active'); }
@@ -107,25 +124,11 @@ class AshLooperWebUI {
         }
         return [];
     }
-    
-    getCurrentSessionTimestamp() {
-        if (this.currentSessionIndex === -1) return null;
-        const sessionObj = this.bootSessions[this.currentSessionIndex];
-        if (!sessionObj || !sessionObj.lines || sessionObj.lines.length === 0) return null;
-        
-        const sessionLines = sessionObj.lines;
-        let timeLine = sessionLines.find(line => line.includes('>[Executing Service.sh]<')) || sessionLines[0];
-        const parts = timeLine.split(' ');
-        const date = parts[0] || '';
-        const time = parts[1] ? parts[1].replace(/:/g, '') : '';
-        if (date && time) return `${date.replace(/\./g, '-')}-${time}`;
-        return null;
-    }
 
     updateSelectedFile() {
         const fileNameElement = document.getElementById('selectedFileName');
         const elements = document.querySelectorAll('.save-btn, .copy-btn, .clear-btn, .session-btn, .search-input');
-        
+
         if (this.currentLogFile) {
             fileNameElement.textContent = this.currentLogFile;
             elements.forEach(el => el.style.display = (el.tagName === 'BUTTON' ? 'flex' : 'block'));
@@ -144,18 +147,18 @@ class AshLooperWebUI {
         }
 
         const filtered = this.searchQuery ? lines.filter(l => l.toLowerCase().includes(this.searchQuery)) : lines;
-        
+
         filtered.forEach(line => {
             const el = document.createElement('div');
             el.className = 'terminal-line';
-            
+
             if (line.includes('NEW BOOT') && line.includes('◆◆◆')) {
                const bootNum = line.match(/BOOT (\d+)/);
                el.innerHTML = `<div class="boot-header">🔄 NEW BOOT SESSION ${bootNum ? '#' + bootNum[1] : ''}</div>`;
                terminalOutput.appendChild(el);
                return;
             }
-            
+
             if (line.includes('######## THE END ##########')) {
                 const bootFooter = document.createElement('div');
                 bootFooter.className = 'boot-footer';
@@ -170,7 +173,7 @@ class AshLooperWebUI {
             else if (line.includes('INFO') || line.includes('STARTED') || line.includes('RUNNING') || line.includes('Executing')) el.classList.add('info');
             else if (line.includes('RTC Status: CORRECT')) el.classList.add('rct-correct');
             else if (line.includes('RTC Status: BACKWARD') || line.includes('RTC Status: INCORRECT')) el.classList.add('rct-incorrect');
-            
+
             el.textContent = line;
             terminalOutput.appendChild(el);
         });
@@ -180,7 +183,7 @@ class AshLooperWebUI {
     showSessionSelector() {
         const modalOverlay = document.createElement('div');
         modalOverlay.className = 'modal-overlay';
-        
+
         const modalContent = document.createElement('div');
         modalContent.className = 'sessions-modal';
 
@@ -230,14 +233,13 @@ class AshLooperWebUI {
         this.bootSessions.forEach((sessionObj, index) => {
             const sessionItem = document.createElement('div');
             sessionItem.className = 'session-item';
-            
+
             const sessionLines = sessionObj.lines;
             const meta = sessionObj.meta;
 
             let bootNum = meta.bootNum || "??";
-            
             let statusBadge = '';
-            
+
             if (!meta.hasEnd) {
                 const isLastSession = index === this.bootSessions.length - 1;
                 if (isLastSession) {
@@ -248,7 +250,6 @@ class AshLooperWebUI {
             }
 
             let displayString = "Unknown Time";
-            
             if (meta.rctStatus === 'Incorrect') {
                  if (meta.time && meta.time !== 'Unknown') displayString = `🕒 ${meta.time}`;
                  else displayString = "🕒 Time Unsynced";
@@ -256,7 +257,7 @@ class AshLooperWebUI {
                  if (meta.date && meta.date !== 'Unknown') displayString = `📅 ${meta.date} 🕒 ${meta.time}`;
                  else displayString = "📅 Unknown Date";
             }
-            
+
             sessionItem.innerHTML = `
                 <div class="session-boot-idx">Boot ${bootNum}</div>
                 <div class="session-main-content">
@@ -273,7 +274,7 @@ class AshLooperWebUI {
                     <button class="session-select-btn">Select</button>
                 </div>
             `;
-            
+
             sessionItem.querySelector('.session-select-btn').addEventListener('click', () => {
                 this.currentSessionIndex = index;
                 this.displayLogContent(this.getCurrentSessionLines());
@@ -299,7 +300,7 @@ class AshLooperWebUI {
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.classList.add('clearing');
         setTimeout(() => {
-            terminalOutput.innerHTML = '<div class="welcome-message"><div>AshReXcue WebUI V2.2</div><div>Cleared</div></div>';
+            terminalOutput.innerHTML = '<div class="welcome-message"><div>AshReXcue WebUI V2.3</div><div>Cleared</div></div>';
             terminalOutput.classList.remove('clearing');
             this.searchQuery = '';
             document.querySelector('.search-input').value = '';

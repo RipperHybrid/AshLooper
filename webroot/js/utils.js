@@ -165,10 +165,31 @@ export class Utils {
         }
     }
 
-    static showToast(message) {
-        if (typeof ksu !== 'undefined' && typeof ksu.toast === 'function') {
-            ksu.toast(message);
+    static showToast(message, type = 'info', duration = 3000) {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            document.body.appendChild(container);
         }
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        const iconName = type === 'success' ? 'check-circle' : 
+                         type === 'error' ? 'exclamation-circle' : 
+                         type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+        
+        const iconHtml = window.icon ? window.icon(iconName) : '';
+
+        toast.innerHTML = `${iconHtml}<span>${message}</span>`;
+        
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
     }
 
     static updateConsole(message, type = 'info') {

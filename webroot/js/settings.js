@@ -1,19 +1,34 @@
 import { Utils } from './utils.js';
 import { AshLooperIcons } from './icons.js';
+import { Config } from './config.js';
 
 export class SettingsManager {
     constructor(mainInstance) {
         this.app = mainInstance;
+        this.knownKeys = [
+            'mode', 'loops', 'disable', 'log', 'check_ss', 'check_sf',
+            'timeout', 'threshold', 'stability_time', 'extra_stability',
+            'install_date', 'version'
+        ];
     }
 
     async loadModuleData() {
         this.app.moduleInfo = {};
         try {
-            const modContent = await Utils.ksuExec("cat /data/adb/modules/AshLooper/module.prop");
+            const modContent = await Utils.ksuExec(`cat "${Config.modulePropPath}"`);
             this.parsePropContent(modContent);
+
             try {
-                const setContent = await Utils.ksuExec("cat /data/adb/modules/AshLooper/settings.prop");
-                this.parsePropContent(setContent);
+                const rawContent = await Utils.ksuExec(`cat "${Config.settingsPropPath}"`);
+
+                const sanitizedContent = this.preProcessContent(rawContent);
+
+                this.parsePropContent(sanitizedContent);
+
+                if (this.detectCorruption(rawContent, sanitizedContent)) {
+                    Utils.updateConsole('Corruption detected in settings.prop, repairing...', 'warning');
+                    await this.repairSettingsFile();
+                }
             } catch (e) {
                 Utils.updateConsole('settings.prop not found, using defaults', 'warning');
             }
@@ -23,45 +38,94 @@ export class SettingsManager {
         }
     }
 
+    preProcessContent(content) {
+        let processed = content;
+        this.knownKeys.forEach(key => {
+            const regex = new RegExp(`(?<!^|\\n)(${key}=)`, 'g');
+            processed = processed.replace(regex, '\n$1');
+        });
+        return processed;
+    }
+
+    detectCorruption(original, sanitized) {
+        if (original !== sanitized) return true;
+
+        const lines = sanitized.split('\n');
+        return lines.some(line => {
+            if (!line.trim() || line.startsWith('#')) return false;
+            const parts = line.split('=');
+            if (parts.length >= 2) {
+                const key = parts[0].trim();
+                const rawVal = parts.slice(1).join('=').trim();
+
+                const cleanVal = this.cleanValue(key, rawVal);
+                return rawVal !== cleanVal;
+            }
+            return false;
+        });
+    }
+
+    async repairSettingsFile() {
+        for (const key of this.knownKeys) {
+            if (this.app.moduleInfo[key] !== undefined && key !== 'version') {
+                await this.updateSettingProp(key, this.app.moduleInfo[key]);
+            }
+        }
+        Utils.updateConsole('Settings file repaired successfully', 'success');
+    }
+
     parsePropContent(content) {
         const lines = content.split('\n');
         lines.forEach(line => {
             if (line.trim() && !line.startsWith('#')) {
-                const [key, ...valueParts] = line.split('=');
-                if (key && valueParts.length > 0) {
-                    this.app.moduleInfo[key.trim()] = valueParts.join('=').trim();
+                const parts = line.split('=');
+                if (parts.length >= 2) {
+                    const key = parts[0].trim();
+                    const rawValue = parts.slice(1).join('=').trim();
+                    this.app.moduleInfo[key] = this.cleanValue(key, rawValue);
                 }
             }
         });
     }
 
-    showSettingsModal() {
-        const modalOverlay = document.createElement('div');
-        modalOverlay.className = 'modal-overlay';
-        
-        const modalContent = document.createElement('div');
-        modalContent.className = 'settings-modal';
+    cleanValue(key, rawValue) {
+        if (['timeout', 'threshold', 'stability_time', 'mode', 'loops'].includes(key)) {
+            const num = parseInt(rawValue.replace(/[^0-9]/g, ''));
+            return isNaN(num) ? rawValue : num.toString();
+        }
+
+        if (['check_ss', 'check_sf', 'extra_stability'].includes(key)) {
+            return rawValue.includes('true') ? 'true' : 'false';
+        }
+
+        if (key === 'install_date') {
+            const match = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (match) return match[1];
+            return rawValue;
+        }
+
+        return rawValue;
+    }
+
+    async loadSettingsTab() {
+        const settingsContainer = document.querySelector('.settings-container');
+        if (!settingsContainer) return;
+
+        settingsContainer.innerHTML = '';
+
+        await this.loadModuleData();
 
         const header = document.createElement('div');
-        header.className = 'settings-modal-header';
-        const title = document.createElement('h2');
-        title.className = 'settings-modal-title';
-        title.textContent = 'AshReXcue Settings';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'settings-modal-close';
-        closeBtn.innerHTML = AshLooperIcons.getCloseIcon();
-        closeBtn.addEventListener('click', () => Utils.removeModal(modalOverlay));
-
-        header.appendChild(title);
-        header.appendChild(closeBtn);
+        header.className = 'settings-header';
+        header.innerHTML = '<h2>AshReXcue Settings</h2>';
 
         const settingsContent = document.createElement('div');
         settingsContent.className = 'settings-content';
 
         const currentTimeout = parseInt(this.app.moduleInfo.timeout) || 29;
-        
+
         const infoFields = [
+            { key: 'install_date', label: 'Install Date', editable: false },
             { key: 'version', label: 'Module Version', editable: false },
             { key: 'timeout', label: 'Timeout (seconds)', editable: true, type: 'number', min: currentTimeout - 10, max: 300, step: 1, description: `Range: ${Math.max(1, currentTimeout - 10)} - 300 seconds` },
             { key: 'threshold', label: 'Threshold', editable: true, type: 'number', min: 1, max: 5, step: 1, description: 'Range: 1-5 (boots before protection)' },
@@ -75,6 +139,7 @@ export class SettingsManager {
             if (this.app.moduleInfo[field.key] !== undefined || field.editable) {
                 const fieldDiv = document.createElement('div');
                 fieldDiv.className = 'settings-field';
+                fieldDiv.dataset.fieldKey = field.key;
 
                 const label = document.createElement('div');
                 label.className = 'settings-label';
@@ -88,11 +153,11 @@ export class SettingsManager {
                 }
 
                 const valueDiv = document.createElement('div');
-                
+
                 if (field.editable) {
                     const inputContainer = document.createElement('div');
                     inputContainer.className = 'settings-input-container';
-                    
+
                     let input;
                     const errorElement = document.createElement('div');
                     errorElement.className = 'input-error';
@@ -104,44 +169,21 @@ export class SettingsManager {
 
                         const switchLabel = document.createElement('label');
                         switchLabel.className = 'switch';
-                        
+
                         input = document.createElement('input');
                         input.type = 'checkbox';
                         input.checked = this.app.moduleInfo[field.key] === 'true';
-                        
+
                         const slider = document.createElement('span');
                         slider.className = 'slider round';
-                        
+
                         switchLabel.appendChild(input);
                         switchLabel.appendChild(slider);
                         inputContainer.appendChild(switchLabel);
-                        
+
                         input.addEventListener('change', (e) => {
                             pendingChanges[field.key] = e.target.checked ? 'true' : 'false';
-                            this.updateSaveButtonState(pendingChanges, currentTimeout, saveBtn);
-                        });
-
-                    } else if (field.type === 'select') {
-                        input = document.createElement('select');
-                        input.className = 'settings-select';
-                        field.options.forEach(opt => {
-                            const option = document.createElement('option');
-                            option.value = opt;
-                            option.textContent = opt === 'true' ? 'Enabled' : 'Disabled';
-                            if (this.app.moduleInfo[field.key] === opt) option.selected = true;
-                            input.appendChild(option);
-                        });
-                        inputContainer.appendChild(input);
-                        
-                        input.addEventListener('change', (e) => {
-                            const value = e.target.value;
-                            if(this.validateInput(field.key, value, currentTimeout)) {
-                                pendingChanges[field.key] = value;
-                                errorElement.classList.remove('show');
-                            } else {
-                                delete pendingChanges[field.key];
-                            }
-                            this.updateSaveButtonState(pendingChanges, currentTimeout, saveBtn);
+                            this.updateSettingsSaveButton(pendingChanges, currentTimeout, saveBtn);
                         });
 
                     } else {
@@ -149,33 +191,42 @@ export class SettingsManager {
                         input.type = field.type || 'text';
                         input.className = 'settings-input';
                         input.value = this.app.moduleInfo[field.key] || (field.key === 'threshold' ? '3' : '29');
-                        
+
                         if (field.min !== undefined) input.min = field.min;
                         if (field.max !== undefined) input.max = field.max;
                         if (field.step !== undefined) input.step = field.step;
                         if (field.type === 'number') input.required = true;
-                        
+
                         inputContainer.appendChild(input);
+
+                        input.addEventListener('focus', (e) => {
+                            setTimeout(() => {
+                                const field = e.target.closest('.settings-field');
+                                if (field) {
+                                    field.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }
+                            }, 300);
+                        });
 
                         input.addEventListener('input', (e) => {
                             const value = e.target.value;
-                            const isValid = this.validateInput(field.key, value, currentTimeout);
-                            
+                            const isValid = this.validateSettingInput(field.key, value, currentTimeout);
+
                             if (isValid) {
                                 pendingChanges[field.key] = value;
                                 errorElement.classList.remove('show');
                                 e.target.setCustomValidity('');
                             } else {
-                                const errorMessage = this.getErrorMessage(field.key, value, currentTimeout);
+                                const errorMessage = this.getSettingErrorMessage(field.key, value, currentTimeout);
                                 errorElement.textContent = errorMessage;
                                 errorElement.classList.add('show');
                                 e.target.setCustomValidity(errorMessage);
                                 delete pendingChanges[field.key];
                             }
-                            this.updateSaveButtonState(pendingChanges, currentTimeout, saveBtn);
+                            this.updateSettingsSaveButton(pendingChanges, currentTimeout, saveBtn);
                         });
                     }
-                    
+
                     inputContainer.appendChild(errorElement);
                     valueDiv.appendChild(inputContainer);
                 } else {
@@ -194,38 +245,23 @@ export class SettingsManager {
         saveBtn.textContent = 'Save Changes';
         saveBtn.disabled = true;
 
-        saveBtn.addEventListener('click', () => {
+        saveBtn.addEventListener('click', async () => {
             if (!saveBtn.disabled) {
-                this.saveSettingsChanges(pendingChanges, currentTimeout, modalOverlay);
+                await this.applySettingsChanges(pendingChanges, null);
+                Object.keys(pendingChanges).forEach(key => delete pendingChanges[key]);
+                saveBtn.disabled = true;
+                this.updateSettingsDisplay();
             }
         });
 
         settingsContent.appendChild(saveBtn);
-        modalContent.appendChild(header);
-        modalContent.appendChild(settingsContent);
-        modalOverlay.appendChild(modalContent);
-        document.body.appendChild(modalOverlay);
-
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) Utils.removeModal(modalOverlay);
-        });
+        settingsContainer.appendChild(header);
+        settingsContainer.appendChild(settingsContent);
     }
 
-    updateSaveButtonState(pendingChanges, currentTimeout, saveBtn) {
-        const hasChanges = Object.keys(pendingChanges).length > 0;
-        if (!hasChanges) {
-            saveBtn.disabled = true;
-            return;
-        }
-        const allValid = Object.keys(pendingChanges).every(key => 
-            this.validateInput(key, pendingChanges[key], currentTimeout)
-        );
-        saveBtn.disabled = !allValid;
-    }
-
-    validateInput(key, value, currentTimeout) {
+    validateSettingInput(key, value, currentTimeout) {
         if (key === 'extra_stability') return value === 'true' || value === 'false';
-        
+
         const numValue = parseInt(value);
         if (isNaN(numValue)) return false;
 
@@ -242,7 +278,7 @@ export class SettingsManager {
         }
     }
 
-    getErrorMessage(key, value, currentTimeout) {
+    getSettingErrorMessage(key, value, currentTimeout) {
         const numValue = parseInt(value);
         if (isNaN(numValue) && key !== 'extra_stability') return 'Invalid number';
         if (key === 'timeout') return `Must be between ${currentTimeout - 10} and 300`;
@@ -251,90 +287,65 @@ export class SettingsManager {
         return 'Invalid value';
     }
 
-    saveSettingsChanges(pendingChanges, currentTimeout, settingsModal) {
-        if (pendingChanges.timeout) {
-            const newTimeout = parseInt(pendingChanges.timeout);
-            const maxDecrease = currentTimeout - 10;
-            if (newTimeout < maxDecrease) {
-                this.showTimeoutWarning(currentTimeout, maxDecrease, pendingChanges, settingsModal);
-                return;
-            }
+    updateSettingsSaveButton(pendingChanges, currentTimeout, saveBtn) {
+        const hasChanges = Object.keys(pendingChanges).length > 0;
+        if (!hasChanges) {
+            saveBtn.disabled = true;
+            return;
         }
-        this.applySettingsChanges(pendingChanges, settingsModal);
+        const allValid = Object.keys(pendingChanges).every(key =>
+            this.validateSettingInput(key, pendingChanges[key], currentTimeout)
+        );
+        saveBtn.disabled = !allValid;
     }
 
-    showTimeoutWarning(currentTimeout, maxDecrease, pendingChanges, settingsModal) {
-        const warningOverlay = document.createElement('div');
-        warningOverlay.className = 'modal-overlay';
+    updateSettingsDisplay() {
+        const fields = [
+            { key: 'install_date', type: 'text' },
+            { key: 'version', type: 'text' },
+            { key: 'timeout', type: 'number' },
+            { key: 'threshold', type: 'number' },
+            { key: 'stability_time', type: 'number' },
+            { key: 'extra_stability', type: 'toggle' }
+        ];
 
-        const warningModal = document.createElement('div');
-        warningModal.className = 'warning-modal';
-
-        const header = document.createElement('div');
-        header.className = 'warning-modal-header';
-
-        const title = document.createElement('h3');
-        title.className = 'warning-modal-title';
-        title.textContent = 'Timeout Warning';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'warning-modal-close';
-        closeBtn.innerHTML = AshLooperIcons.getCloseIcon();
-        closeBtn.addEventListener('click', () => Utils.removeModal(warningOverlay));
-
-        header.appendChild(title);
-        header.appendChild(closeBtn);
-
-        const content = document.createElement('div');
-        content.className = 'warning-modal-content';
-        content.innerHTML = `
-            You cannot decrease timeout by more than 10 seconds.<br><br>
-            <strong>Current timeout:</strong> ${currentTimeout} seconds<br>
-            <strong>Minimum allowed:</strong> ${maxDecrease} seconds<br><br>
-            Please adjust the timeout value and try again.
-        `;
-
-        const buttons = document.createElement('div');
-        buttons.className = 'warning-modal-buttons';
-
-        const okBtn = document.createElement('button');
-        okBtn.className = 'warning-modal-btn confirm';
-        okBtn.textContent = 'OK';
-        okBtn.addEventListener('click', () => Utils.removeModal(warningOverlay));
-
-        buttons.appendChild(okBtn);
-
-        warningModal.appendChild(header);
-        warningModal.appendChild(content);
-        warningModal.appendChild(buttons);
-        warningOverlay.appendChild(warningModal);
-        document.body.appendChild(warningOverlay);
-
-        warningOverlay.addEventListener('click', (e) => {
-            if (e.target === warningOverlay) Utils.removeModal(warningOverlay);
+        fields.forEach(field => {
+            const input = document.querySelector(`#${field.key}-error`)?.parentNode?.querySelector('input, select');
+            if (input) {
+                if (field.type === 'toggle') {
+                    input.checked = this.app.moduleInfo[field.key] === 'true';
+                } else {
+                    input.value = this.app.moduleInfo[field.key] || '';
+                }
+            } else {
+                const valueDiv = document.querySelector(`.settings-field:has(#${field.key}-error) .settings-value`);
+                if (valueDiv) {
+                    valueDiv.textContent = this.app.moduleInfo[field.key] || 'N/A';
+                }
+            }
         });
     }
 
     async applySettingsChanges(pendingChanges, settingsModal) {
         Utils.showLoadingSpinner(true);
         const promises = [];
-        
+
         Object.keys(pendingChanges).forEach(key => {
             if (pendingChanges[key] !== undefined && pendingChanges[key] !== this.app.moduleInfo[key]) {
                 promises.push(this.updateSettingProp(key, pendingChanges[key]));
             }
         });
-        
+
         if (promises.length > 0) {
             try {
                 await Promise.all(promises);
                 Utils.updateConsole('Settings saved successfully', 'success');
-                Utils.showToast('Settings saved successfully');
-                Utils.removeModal(settingsModal);
+                Utils.showToast('Settings saved successfully', 'success');
+                if (settingsModal) Utils.removeModal(settingsModal);
                 await this.loadModuleData();
             } catch (error) {
                 Utils.updateConsole(`Failed to save: ${error.message}`, 'error');
-                Utils.showToast(`Failed to save settings`);
+                Utils.showToast(`Failed to save settings`, 'error');
             } finally {
                 Utils.showLoadingSpinner(false);
             }
@@ -345,13 +356,12 @@ export class SettingsManager {
 
     async updateSettingProp(key, value) {
         try {
-            const settingsPath = "/data/adb/modules/AshLooper/settings.prop";  
-            const deleteCmd = `sed -i "/^${key}=/d" "${settingsPath}"`;
-            await Utils.ksuExec(deleteCmd);         
-            const appendCmd = `echo "${key}=${value}" >> "${settingsPath}"`;
-            const result = await Utils.ksuExec(appendCmd);        
+            const deleteCmd = `sed -i "/^${key}=/d" "${Config.settingsPropPath}"`;
+            await Utils.ksuExec(deleteCmd);
+            const appendCmd = `echo "${key}=${value}" >> "${Config.settingsPropPath}"`;
+            const result = await Utils.ksuExec(appendCmd);
             this.app.moduleInfo[key] = value;
-            Utils.updateConsole(`Updated ${key} to ${value}`, 'success');        
+            Utils.updateConsole(`Updated ${key} to ${value}`, 'success');
             return result;
         } catch (error) {
             Utils.updateConsole(`Failed to update ${key}: ${error.message}`, 'error');

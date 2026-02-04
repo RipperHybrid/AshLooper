@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
 MODPATH="${0%/*}"
-. "$MODPATH"/func.sh || { logger "Error: Failed to source func.sh"; exit 1; }
+. "$MODPATH"/utils.sh 2>>/cache/looper/looperbug.log || exit 1
 
 ROOT_TYPE="$method"
 

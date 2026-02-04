@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
 MODPATH="${0%/*}"
-. "$MODPATH/func.sh" || { logger "Error: Failed to source func.sh"; exit 1; }
+. "$MODPATH"/utils.sh 2>>/cache/looper/looperbug.log || exit 1
 
 loops=$(get_prop "loops")
 timeout=$(get_prop "timeout")
@@ -89,7 +89,7 @@ boot_completed=""
 while [ "$boot_completed" != "1" ]; do
     current_time=$(date +%s)
     elapsed=$((current_time - start_time))
-    
+
     if [ "$elapsed" -ge "$timeout" ]; then
         log "Boot did NOT complete within ${timeout}s"
         log "Debug Info: loops=$loops, threshold=$threshold, disable_mode=$disable_mode"
@@ -100,10 +100,10 @@ while [ "$boot_completed" != "1" ]; do
         fi
         handle_boot_loop
     fi
-    
+
     boot_completed=$(getprop sys.boot_completed)
     [ "$boot_completed" = "1" ] && break
-    
+
     remainder=$((elapsed % 5))
     if [ "$remainder" -eq 0 ]; then
         log "Waiting for boot completion... (${elapsed}/${timeout}s)"
@@ -145,21 +145,21 @@ while [ "$current_time" -lt "$stability_end" ]; do
     ss_status=0
     sf_status=0
     additional_checks_failed=0
-    
+
     if [ "$do_check_ss" = "true" ]; then
         if ! check_process "system_server"; then
             ss_status=1
             log "CRITICAL: system_server process missing!"
         fi
     fi
-    
+
     if [ "$do_check_sf" = "true" ]; then
         if ! check_process "surfaceflinger"; then
             sf_status=1
             log "CRITICAL: surfaceflinger process missing!"
         fi
     fi
-    
+
     if [ "$extra_stability" = "true" ]; then
         for proc in servicemanager vold logd; do
             if ! check_process "$proc"; then
@@ -174,7 +174,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
             log "Stability: Critical processes have recovered."
         fi
         consecutive_failures=0
-        
+
         time_since_last_log=$((current_time - last_log_time))
         if [ $time_since_last_log -ge $log_interval ]; then
             elapsed_stability=$((current_time - stability_start))
@@ -192,7 +192,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
         handle_boot_loop
         exit 1
     fi
-    
+
     sleep $check_interval
     current_time=$(date +%s)
 done
@@ -207,10 +207,10 @@ log "Boot successful. Updated timeout to $new_timeout"
 
 if [ -f "$TMP_FILE" ]; then
     log "Starting module comparison..."
-    
+
     if [ -f "$MODULE_LIST" ]; then
         log "Previous module list found. Comparing..."
-        
+
         jq_output=$("$JQ" -n -r --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
           ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
           ($new[0] | map({key: .id, value: .}) | from_entries) as $newmap |
@@ -235,9 +235,9 @@ if [ -f "$TMP_FILE" ]; then
             empty
           end)
         ' 2>&1)
-        
+
         jq_exit_code=$?
-        
+
         if [ $jq_exit_code -ne 0 ]; then
             log "ERROR: jq command failed with code $jq_exit_code"
             log "Output: $jq_output"
@@ -245,7 +245,7 @@ if [ -f "$TMP_FILE" ]; then
             log "jq command executed successfully"
             changed_modules="$jq_output"
         fi
-        
+
         if [ -n "$changed_modules" ]; then
             log "Module changes detected:"
             printf '%s\n' "$changed_modules" | while IFS= read -r change; do

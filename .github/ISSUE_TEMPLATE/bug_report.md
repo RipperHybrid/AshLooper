@@ -35,11 +35,8 @@ What did you expect to happen?
 [List any Magisk or kernel modules involved, if any.]
 
 **Recovery environment**
-- Recovery used (e.g. TWRP, OrangeFox, stock): 
+- Recovery used (e.g. TWRP, OrangeFox, stock):
 - Can you access recovery or fastboot? [Yes/No]
-
-**Screenshots or Videos**
-If applicable, add screenshots or a short video to help explain the problem.
 
 **Additional context**
 Add any other context or details that may help us diagnose the issue.

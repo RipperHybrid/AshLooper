@@ -1,27 +1,21 @@
-### v9.3 - Nexus Update Major Changes
+# 🚀 AshReXcue v9.4 Update
 
-## 1. **WebUI Architecture Overhaul**
-- **New Local-only WebUI Server For Magisk**: Built-in HTTP server with BusyBox `httpd`
-- **Enhanced Security**:
-  - Random port generation (6000-9999 range)
-  - Secure token authentication via `/nexus/uplink_key`
-  - Session management with auto-shutdown (5min max, 1min idle, localhost only)
-  - Whitelist-based command execution in CGI
-  - Activity heartbeat tracking and automatic session cleanup
+### ✨ WebUI V2.3 & Settings Overhaul
+* **Tabbed Interface:** New navigation system separating **Logs** and **Settings** for a cleaner experience.
+* **Live Configuration:** Modify protection parameters (`timeout`, `threshold`, `stability_time`) directly from the browser with real-time input validation.
+* **Auto-Repair System:** The WebUI now detects corruption in `settings.prop` and automatically repairs the file structure to prevent crashes.
+* **Toast Notifications:** Added visual feedback for saving logs, updating settings, and system status.
 
-### 2. **Module Core Enhancements**
-- **Root Detection**: Added APatch support alongside KernelSU & Magisk
-- **RTC Status Monitoring**: Detects system clock issues during boot (CORRECT/BACKWARD status)
-- **Service Locking**: `/dev/AshReXcue_service_lock` prevents parallel execution
+### ⚙️ Core Logic Refactor (`utlis.sh`)
+* **Ghost Module Detection:** Rewrote `create_mod_list` to scan **all** folders in `/data/adb/modules/`. The script now detects and can disable "broken" modules that are missing their `module.prop` file.
+* **Sanitized Parsing:** Replaced complex `awk` logic with a standardized, robust `get_prop` function. This fixes parsing errors caused by line endings and special characters.
+* **Default Fallbacks:** Implemented strict default values (ID defaults to folder name) to ensure the JSON module list is always valid.
 
-### 3. **WebUI Features**
-- **Enhanced Log Parser**: Smart session detection with metadata extraction
-- **Modular Architecture**: Refactored JavaScript (main.js, utils.js, files.js, settings.js)
-- **Real-time Settings**: Adjust timeout, threshold, stability time via WebUI
-- **Log Export**: Save individual sessions or full logs to Downloads
+### 🔒 Security & CGI
+* **Smart Root Escalation:** The `exec` script now runs in standard user mode by default and only escalates to Root (`su -c`) when modifying protected files (like `settings.prop`).
+* **Enhanced Sandbox:** Stricter path validation prevents the WebUI from accessing unauthorized system partitions.
 
-### 4. **Security Improvements**
-- **Command Validation**: Whitelist-only execution in CGI for security
-- **Secure Token Generation**: UUID-based authentication tokens
-- **Localhost Isolation**: Server binds only to 127.0.0.1
-- **Monitor Scripts**: Automatic cleanup of stale processes
+### 📦 Installer & Logging
+* **Persistent Selection:** The installer (`customize.sh`) now loops indefinitely until a valid Volume Key selection is made, preventing accidental "default" installations.
+* **Root Info:** Now displays the detected Root method and version during installation.
+* **Debug Tracing:** Added error redirection to `/cache/looper/looperbug.log` in `post-fs-data.sh` and `service.sh` to catch startup failures.
