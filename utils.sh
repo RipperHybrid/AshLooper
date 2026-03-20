@@ -10,8 +10,10 @@ JQ="$MODPATH/jq/jq"
 boot_completed=0
 
 chooseport() {
+  # Original idea by chainfire and ianmacd @xda-developers
   [ "$1" ] && local delay=$1 || local delay=10
-  local error=false
+  local retry_count=0
+  local max_retries=2
   if [ -z "$TMPDIR" ]; then TMPDIR="/data/local/tmp"; fi
   mkdir -p "$TMPDIR"
   while true; do
@@ -26,12 +28,12 @@ chooseport() {
       fi
       [ $count -gt 12 ] && break
     done
-    if $error; then
-      echo "  >[Volume key not detected. Aborting]< "
-      abort
+    retry_count=$((retry_count + 1))
+    if [ $retry_count -gt $max_retries ]; then
+      echo "  > Volume key not detected after $max_retries attempts. Auto-selecting Current Option."
+      return 0
     else
-      error=true
-      echo "  >[Volume key not detected. Try again]< "
+      echo "  > Volume key not detected. Attempt $retry_count of $max_retries. Try again"
     fi
   done
 }
@@ -97,9 +99,7 @@ get_prop() {
     fi
 
     local value=$(grep "^$prop=" "$target_file" 2>/dev/null | head -n 1 | cut -d'=' -f2-)
-
     value=$(printf '%s' "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/\r$//')
-
     printf '%s' "$value"
 }
 
@@ -239,13 +239,32 @@ list_modules() {
     log "###############"
     log "Available modules: "
     count=0
+    whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
     for module_folder in "$mdir"/*; do
         if [ -d "$module_folder" ]; then
-            module_name=$(basename "$module_folder")
-            status="- Enabled"
-            [ -f "$module_folder/disable" ] && status="- Disabled"
-            log "$((count + 1)). $module_name $status"
+            folder_name=$(basename "$module_folder")
+            id=$(printf '%s' "$folder_name" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
+            if [ -f "$module_folder/module.prop" ]; then
+                prop_id=$(get_prop "id" "$module_folder/module.prop")
+                if [ -n "$prop_id" ]; then
+                    id=$(printf '%s' "$prop_id" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
+                fi
+            fi
+            is_whitelisted=0
+            case ",$whitelist," in
+                *",${id},"* | *",${folder_name},"* ) is_whitelisted=1 ;;
+            esac
+            if [ -f "$module_folder/disable" ]; then
+                status="- Disabled"
+            else
+                status="- Active"
+            fi
+            if [ "$is_whitelisted" -eq 1 ]; then
+                status="$status - Whitelist"
+            fi
+
             count=$((count + 1))
+            log "$count. $folder_name $status"
         fi
     done
     log "###############"
@@ -255,31 +274,52 @@ lockdown() {
     local MODE=$(get_prop "mode")
     local LOCKDOWN_TYPE="${1:-normal}"
     threshold=$(get_prop "threshold")
+    whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
 
     if [ "$LOCKDOWN_TYPE" = "full" ]; then
         log "Full Lockdown: Threshold ($threshold) reached. Disabling ALL modules including AshLooper..."
     else
-        log "Threshold ($threshold) reached. Disabling non-protected modules..."
+        log "Threshold ($threshold) reached. Disabling non-whitelisted modules..."
     fi
 
     log "###########################"
     log "Lockdown Mode Activated"
     enabled_modules=0
+
     for module_folder in "$mdir"/*; do
         if [ -d "$module_folder" ]; then
-            module_name=$(basename "$module_folder")
-            if [ "$LOCKDOWN_TYPE" != "full" ] && [ "$module_name" = "AshLooper" ]; then
-                continue
+            folder_name=$(basename "$module_folder")
+            folder_name=$(printf '%s' "$folder_name" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
+            id="$folder_name"
+
+            if [ -f "$module_folder/module.prop" ]; then
+                prop_id=$(get_prop "id" "$module_folder/module.prop")
+                [ -n "$prop_id" ] && id=$(printf '%s' "$prop_id" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
             fi
+
+            if [ "$LOCKDOWN_TYPE" != "full" ]; then
+                is_whitelisted=0
+                case ",$whitelist," in
+                    *",${id},"* | *",${folder_name},"* ) is_whitelisted=1 ;;
+                esac
+
+                if [ "$is_whitelisted" -eq 1 ]; then
+                    log "Skipping whitelisted module: $id"
+                    continue
+                fi
+            fi
+
             touch "$module_folder/disable"
-            log "Disabled module: $module_name"
+            log "Disabled module: $id"
             enabled_modules=$((enabled_modules + 1))
         fi
     done
+
     log "Total Disabled: $enabled_modules"
     log "###########################"
     modify_prop "loops" "0"
     modify_prop "disable" "full"
+
     if [ "$MODE" = "2" ]; then
         log "Lockdown complete. Rebooting to recovery."
         reboot recovery
@@ -337,19 +377,18 @@ create_mod_list() {
 
 disable_new_mods() {
     local MODE=$(get_prop "mode")
-
+    whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
     if [ ! -f "$MODULE_LIST" ]; then
         log "No previous module list found. Invoking lockdown."
         lockdown
         return
     fi
-
     changed_ids=$(
         "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
           ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
           $new[0][] as $n |
           ($oldmap[$n.id] // null) as $o |
-          if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
+          if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status) then
             $n.id
           else
             empty
@@ -357,19 +396,38 @@ disable_new_mods() {
         ' 2>/dev/null || echo ""
     )
 
-    if [ -z "$changed_ids" ]; then
-        log "No new/updated modules detected. Invoking lockdown."
+    local target_ids=""
+    if [ -n "$changed_ids" ]; then
+        for id in $changed_ids; do
+            id_clean=$(printf '%s' "$id" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/')
+            [ -z "$id_clean" ] && continue
+
+            is_whitelisted=0
+            case ",$whitelist," in
+                *",${id_clean},"* ) is_whitelisted=1 ;;
+            esac
+
+            if [ "$is_whitelisted" -eq 1 ]; then
+                log "Skipping changed whitelisted module: $id_clean"
+            else
+                target_ids="$target_ids $id_clean"
+            fi
+        done
+    fi
+
+    target_ids=$(echo "$target_ids" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+    if [ -z "$target_ids" ]; then
+        log "No non-whitelisted new/changed modules detected. Falling back to lockdown."
         lockdown
         return
     fi
 
-    formatted_log=$(printf '%s' "$changed_ids" | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g' 2>/dev/null || echo "format_failed")
-    log "Changed/Added modules detected: $formatted_log"
+    formatted_log=$(printf '%s' "$target_ids" | tr ' ' ',')
+    log "Targeting non-whitelisted modules: $formatted_log"
     log "Starting disable process..."
 
-    printf '%s\n' "$changed_ids" | while IFS= read -r id || [ -n "$id" ]; do
-        id_clean=$(printf '%s' "$id" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/')
-
+    for id_clean in $target_ids; do
         if [ -d "$mdir/$id_clean" ]; then
             touch "$mdir/$id_clean/disable"
             log "Module disabled: $mdir/$id_clean"
@@ -380,7 +438,6 @@ disable_new_mods() {
 
     modify_prop "loops" "0"
     modify_prop "disable" "partial"
-
     if [ "$MODE" = "2" ]; then
         log "Partial disable complete. Rebooting to recovery."
         reboot recovery
@@ -408,7 +465,7 @@ handle_boot_loop() {
                 lockdown
                 ;;
             "full")
-                log "Well, you're fu*ked ¯\\_(ツ)_/¯"
+                log "Well, you're fu*ked ¯\_(ツ)_/¯"
                 log "Full protection enabled but bootloop still occurred"
                 log "Disabling all modules including AshLooper."
                 lockdown "full"

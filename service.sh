@@ -20,7 +20,6 @@ LOCKDIR="/dev/AshReXcue_service_lock"
 
 set_log_file
 
-# Define a lock directory in /dev (RAM) to prevent parallel execution
 if mkdir "$LOCKDIR" 2>/dev/null; then
     log "Lock acquired: Main instance starting (PID=$$)"
 else
@@ -278,6 +277,33 @@ modify_prop "loops" "0"
 modify_prop "disable" "none"
 log "Reset loop counter and protection mode"
 
+current_whitelist=$(get_prop "whitelist")
+if [ -n "$current_whitelist" ]; then
+    clean_wl=$(printf '%s' "$current_whitelist" | tr -d '"' | tr -d "'" | tr -d ' ')
+    new_wl=""
+    removed_any=0
+
+    for mod in $(printf '%s' "$clean_wl" | tr ',' ' '); do
+        if [ -n "$mod" ]; then
+            if [ -d "/data/adb/modules/$mod" ]; then
+                if [ -z "$new_wl" ]; then
+                    new_wl="$mod"
+                else
+                    new_wl="${new_wl},${mod}"
+                fi
+            else
+                log "Whitelist cleanup: '$mod' is missing. Removing."
+                removed_any=1
+            fi
+        fi
+    done
+
+    if [ "$removed_any" -eq 1 ]; then
+        modify_prop -s "whitelist" "\"$new_wl\""
+        log "Updated whitelist in settings."
+    fi
+fi
+
 FOUND_BB=""
 for bb in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
     if [ -x "$bb" ]; then
@@ -293,8 +319,7 @@ fi
 
 rm -f "$MODPATH"/monitor_*.sh
 rm -f "$MODPATH/.session_state"
-rm -f "$MODPATH/webroot/nexus/uplink_key"
-rm -f "$MODPATH/webroot/nexus/server_port"
+rm -f "$MODPATH/nexus_secure"
 
 log "WebUI cleanup: Stopped processes and removed stale files"
 log "######## THE END ##########"

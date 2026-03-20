@@ -9,3 +9,4 @@ check_ss=false
 check_sf=false
 install_date=none
 extra_stability=false
+whitelist="AshLooper"

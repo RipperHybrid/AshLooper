@@ -1,6 +1,6 @@
 #!/system/bin/sh
 
-# AshReXcue Command Executor
+# AshReXcue Localhost Command Executor
 # Auto-escalates to Root for module operations
 
 # --- Setup ---
@@ -11,111 +11,22 @@ for candidate in $BB_CANDIDATES; do
     [ -x "$candidate" ] && BB="$candidate" && break
 done
 
-# Auth Check
-TOKEN_FILE="../nexus/uplink_key"
-[ ! -f "$TOKEN_FILE" ] && exit 1
+# --- Auth Check ---
+TOKEN_FILE="$MOD_DIR/nexus_secure/uplink_key"
+[ ! -f "$TOKEN_FILE" ] && { echo '{"code": 1, "stdout": "Auth file missing"}'; exit 1; }
+
 REAL_TOKEN=$(cat "$TOKEN_FILE" 2>/dev/null)
 INCOMING_TOKEN=$(echo "$HTTP_X_ASH_TOKEN" | tr -d '[:space:]')
-[ "$INCOMING_TOKEN" != "$REAL_TOKEN" ] && exit 1
+[ "$INCOMING_TOKEN" != "$REAL_TOKEN" ] && { echo '{"code": 1, "stdout": "Invalid Token"}'; exit 1; }
 
-# Heartbeat
-[ -f "../../.session_state" ] && echo "$(cat ../nexus/server_port) $(($(date +%s) + 300)) $(date +%s)" > "../../.session_state"
-
-# --- Safety & Helper Functions ---
-SAFE_DIRS="/cache/looper/ $MOD_DIR/ /data/local/tmp/ /storage/emulated/0/Download/"
-
-is_safe_path() {
-    case "$1" in *..*) return 1 ;; esac
-    for safe_dir in $SAFE_DIRS; do
-        case "$1" in "$safe_dir"*) return 0 ;; esac
-    done
-    return 1
-}
-
-run_smart() {
-    # Force root if touching Module Directory (system partition)
-    if echo "$1" | grep -q "$MOD_DIR"; then
-        su -c "$BB sh -c '$1'" 2>&1
-    else
-        $BB sh -c "$1" 2>&1
-    fi
-}
+# --- Heartbeat ---
+[ -f "$MOD_DIR/.session_state" ] && echo "$(cat $MOD_DIR/nexus_secure/server_port) $(($(date +%s) + 300)) $(date +%s)" > "$MOD_DIR/.session_state"
 
 # --- Execution Logic ---
 RAW_CMD=$(cat)
-VERB=$(echo "$RAW_CMD" | awk '{print $1}')
 
-case "$VERB" in
-    ls|cat|rm)
-        CLEAN_CMD=$(echo "$RAW_CMD" | sed -E 's/^(ls -1|ls|cat|rm) //')
-        FILE=$(echo "$CLEAN_CMD" | tr -d '"' | tr -d "'")
-        
-        if is_safe_path "$FILE"; then
-            OUTPUT=$(run_smart "$RAW_CMD")
-        else
-            OUTPUT="Access Denied: Restricted Path"
-        fi
-        ;;
-
-    cp|mv)
-        SRC=$(echo "$RAW_CMD" | awk '{print $2}' | tr -d '"' | tr -d "'")
-        DST=$(echo "$RAW_CMD" | awk '{print $3}' | tr -d '"' | tr -d "'")
-        
-        if is_safe_path "$SRC" && is_safe_path "$DST"; then
-            # Force Root if source or dest is in Module Dir
-            if echo "$SRC" | grep -q "$MOD_DIR" || echo "$DST" | grep -q "$MOD_DIR"; then
-                su -c "$BB cp -f \"$SRC\" \"$DST\"" 2>&1
-                [ "$VERB" = "mv" ] && su -c "rm \"$SRC\""
-            else
-                $BB cp "$SRC" "$DST" 2>&1
-                [ "$VERB" = "mv" ] && rm "$SRC"
-            fi
-            OUTPUT="Operation Success"
-        else
-            OUTPUT="Access Denied: Restricted Path"
-        fi
-        ;;
-
-    sed|echo)
-        TARGET="$MOD_DIR/settings.prop"
-        
-        # Only allow touching settings.prop
-        if echo "$RAW_CMD" | grep -q "settings.prop"; then
-            if [ "$VERB" = "echo" ]; then
-                # Clean extract: echo "key=val" >> file
-                CONTENT=$(echo "$RAW_CMD" | sed -E 's/^echo "//; s/" >>.*//')
-                su -c "echo \"$CONTENT\" >> \"$TARGET\"" 2>&1
-                OUTPUT="Settings Appended"
-            else
-                # Clean extract: sed -i "regex" file
-                EXPR=$(echo "$RAW_CMD" | awk -F'"' '{print $2}')
-                [ -n "$EXPR" ] && su -c "$BB sed -i \"$EXPR\" \"$TARGET\"" 2>&1
-                OUTPUT="Settings Updated"
-            fi
-        elif [ "$VERB" = "sed" ]; then
-            # Allow log extraction (usually /cache)
-            OUTPUT=$(run_smart "$RAW_CMD")
-        else
-            OUTPUT="Access Denied"
-        fi
-        ;;
-
-    pgrep|pkill)
-        # Only allow killing own httpd process
-        if echo "$RAW_CMD" | grep -q "httpd -p 127.0.0.1:"; then
-            $BB $RAW_CMD 2>&1
-            [ "$VERB" = "pkill" ] && OUTPUT="Service Stopped"
-        else
-             OUTPUT="Access Denied"
-        fi
-        ;;
-
-    date|uptime|printf)
-        OUTPUT=$(run_smart "$RAW_CMD")
-        ;;
-
-    *) OUTPUT="Unknown Command" ;;
-esac
+# PIPING DIRECTLY TO STDIN: Bypasses all quote escaping hell, no temp files needed.
+OUTPUT=$(printf '%s\n' "$RAW_CMD" | su -c "$BB sh" 2>&1)
 
 # --- Output ---
 echo "Content-Type: application/json"

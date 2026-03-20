@@ -146,12 +146,10 @@ ui_print ""
 ui_print "--------------------------------------------------"
 ui_print "- Writing Config..."
 
-oldlog=$(get_prop log "$mdir/AshLooper/settings.prop")
-if [ -n "$oldlog" ]; then
-  modify_prop -s "log" "$oldlog" "$MODPATH/settings.prop"
-fi
+oldlog=$(get_prop log "$mdir/AshLooper/settings.prop") && modify_prop -s "log" "$oldlog" "$MODPATH/settings.prop"
+oldlist=$(get_prop whitelist "$mdir/AshLooper/settings.prop") && modify_prop -s "whitelist" "$oldlist" "$MODPATH/settings.prop"
 
-modify_prop -s "description" "🛡️ [Mode $smode | Threshold: $selected_threshold boots | Extra: $stability_check] Bootloop Saver Protection For Magisk-KernelSU/Next." "$MODPATH/module.prop"
+modify_prop -s "description" "🛡️ [Mode $smode | Threshold: $selected_threshold boots | Stability Check: $stability_check] Bootloop Saver Protection For Magisk-KernelSU/Next." "$MODPATH/module.prop"
 mkdir -p "$LOG_DIR" || { ui_print "- Error: Failed to create directory '$LOG_DIR'. Aborting." >&2; exit 1; }
 
 [ -f "$JQ" ] && chmod 755 "$JQ"

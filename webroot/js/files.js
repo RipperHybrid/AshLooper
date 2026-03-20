@@ -55,11 +55,14 @@ export class FileManager {
     }
 
     async selectFile(filename) {
-        this.app.currentLogFile = filename;
-        this.app.updateSelectedFile();
-        this.app.closePopup();
+        const prevLogFile = this.app.currentLogFile;
+        const prevOriginalLines = [...this.app.originalLines];
+        const prevBootSessions = [...this.app.bootSessions];
+        const prevSessionIndex = this.app.currentSessionIndex;
+        const terminalOutput = document.getElementById('terminalOutput');
+        const prevTerminalHTML = terminalOutput ? terminalOutput.innerHTML : '';
 
-        Utils.updateConsole(`Reading: ${filename}`);
+        this.app.closePopup();
         Utils.showLoadingSpinner(true);
 
         try {
@@ -68,16 +71,40 @@ export class FileManager {
             this.parseBootSessions();
             
             if (this.app.bootSessions.length > 1) {
-                this.app.showSessionSelector();
+                this.app.showSessionSelector(
+                    () => {
+                        this.app.currentLogFile = filename;
+                        this.app.updateSelectedFile();
+                        if (terminalOutput) terminalOutput.innerHTML = prevTerminalHTML;
+                        Utils.updateConsole(`Reading: ${filename}`);
+                        this.app.clearSearch();
+                        this.app.displayLogContent(this.app.getCurrentSessionLines());
+                        Utils.updateConsole(`Loaded ${this.app.originalLines.length} lines, ${this.app.bootSessions.length} boot sessions`);
+                    },
+                    () => {
+                        this.app.currentLogFile = prevLogFile;
+                        this.app.originalLines = prevOriginalLines;
+                        this.app.bootSessions = prevBootSessions;
+                        this.app.currentSessionIndex = prevSessionIndex;
+                        if (terminalOutput) terminalOutput.innerHTML = prevTerminalHTML;
+                        this.app.updateSelectedFile();
+                    }
+                );
             } else {
+                this.app.currentLogFile = filename;
                 this.app.currentSessionIndex = 0;
+                this.app.updateSelectedFile();
+                if (terminalOutput) terminalOutput.innerHTML = prevTerminalHTML;
+                Utils.updateConsole(`Reading: ${filename}`);
+                this.app.clearSearch();
                 this.app.displayLogContent(this.app.getCurrentSessionLines());
+                Utils.updateConsole(`Loaded ${this.app.originalLines.length} lines, ${this.app.bootSessions.length} boot sessions`);
             }
-            
-            Utils.updateConsole(`Loaded ${this.app.originalLines.length} lines, ${this.app.bootSessions.length} boot sessions`);
         } catch (error) {
             Utils.updateConsole(`Error reading file: ${error.message}`, 'error');
+            this.app.currentLogFile = filename;
             this.app.originalLines = [`Error reading file: ${error.message}`];
+            this.app.updateSelectedFile();
             this.app.displayLogContent(this.app.originalLines);
         } finally {
             Utils.showLoadingSpinner(false);

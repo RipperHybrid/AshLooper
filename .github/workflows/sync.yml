@@ -30,6 +30,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build WebUI
+        run: |
+          cd webroot
+          npm install
+          npm run build
+          cp -r cgi-bin dist/
+          cd ..
+          mv webroot webroot_src
+          mv webroot_src/dist webroot
+
       - name: Extract Metadata
         id: metadata
         run: |
@@ -71,15 +86,11 @@ jobs:
           BODY_FILE="${{ steps.metadata.outputs.body_file }}"
 
           if gh release view "$TAG" > /dev/null 2>&1; then
-            echo "Release $TAG exists. Appending edited footer."
-
             NOW_DATE=$(date +'%Y-%m-%d')
             NOW_TIME=$(date +'%H:%M:%S')
 
             echo "" >> "$BODY_FILE"
             echo "- Edited: Date: $NOW_DATE Time: $NOW_TIME" >> "$BODY_FILE"
-          else
-            echo "New release. No footer added."
           fi
 
       - name: Upload to GitHub Release
@@ -93,3 +104,55 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send to Telegram
+        continue-on-error: true
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.BOTAPI }}
+          CHAT_ID: ${{ secrets.CHANNEL }}
+          ZIP_NAME: ${{ steps.metadata.outputs.filename }}
+          REPO_SLUG: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_HASH: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          SERVER_URL: ${{ github.server_url }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
+          [ ! -f "$ZIP_NAME" ] && exit 1
+
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          printf 'commit: %s' "$COMMIT_MSG" > /tmp/tg_raw.txt
+          RAW_LEN=$(wc -m < /tmp/tg_raw.txt)
+
+          if [ "$RAW_LEN" -ge 1024 ]; then
+            RAW_TEXT=$(cat /tmp/tg_raw.txt)
+            TRUNCATED="${RAW_TEXT:0:950}"
+            CLEANED=$(printf '%s' "$TRUNCATED" | sed -zE 's/[[:space:]#_.,*-]+$//')
+            printf '%s....(truncated — see full commit via button below)' "$CLEANED" > /tmp/tg_caption.txt
+          else
+            cp /tmp/tg_raw.txt /tmp/tg_caption.txt
+          fi
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            BTN_TEXT="Manual Run ⚡️"
+            BTN_URL="${SERVER_URL}/${REPO_SLUG}/actions/runs/${RUN_ID}"
+          else
+            BTN_TEXT="View Commit 📋"
+            BTN_URL="${SERVER_URL}/${REPO_SLUG}/commit/${COMMIT_HASH}"
+          fi
+
+          REPO_URL="${SERVER_URL}/${REPO_SLUG}"
+          CHANGELOG_URL="${SERVER_URL}/${REPO_SLUG}/blob/${BRANCH_NAME}/changelog.md"
+
+          KEYBOARD_JSON=$(printf \
+            '{"inline_keyboard":[[{"text":"%s","url":"%s"},{"text":"Changelog 📝","url":"%s"}],[{"text":"Repo 🏠","url":"%s"}]]}' \
+            "$BTN_TEXT" "$BTN_URL" "$CHANGELOG_URL" "$REPO_URL")
+
+          curl -s \
+               -F "chat_id=$CHAT_ID" \
+               -F "document=@${ZIP_NAME}" \
+               -F "caption=</tmp/tg_caption.txt" \
+               -F "reply_markup=$KEYBOARD_JSON" \
+               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"

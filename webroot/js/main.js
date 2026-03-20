@@ -1,6 +1,7 @@
 import { Utils } from './utils.js';
 import { FileManager } from './files.js';
 import { SettingsManager } from './settings.js';
+import { WhitelistManager } from './whitelist.js';
 import { AshLooperIcons } from './icons.js';
 
 class AshLooperWebUI {
@@ -13,51 +14,131 @@ class AshLooperWebUI {
         this.bootSessions = [];
         this.currentSessionIndex = -1;
         this.settingsLoaded = false;
+        this.whitelistLoaded = false;
+        this.activeTab = 'logs';
+
+        this.tabsConfig = [
+            { id: 'logs',      label: 'Logs',      iconMethod: 'getFabLogsIcon' },
+            { id: 'whitelist', label: 'Whitelist', iconMethod: 'getFabWhitelistIcon' },
+            { id: 'settings',  label: 'Settings',  iconMethod: 'getFabSettingsIcon' }
+        ];
+
         this.fileManager = new FileManager(this);
         this.settingsManager = new SettingsManager(this);
+        this.whitelistManager = new WhitelistManager(this);
 
         this.init();
     }
 
     async init() {
         document.body.classList.add('dark-retro-mode');
+        AshLooperIcons.renderAll();
+        this.updateMainFabIcon();
         this.setupEventListeners();
         this.setupTabNavigation();
         this.setupRefreshButton();
         this.fileManager.loadLogFiles();
         await this.settingsManager.loadModuleData();
-
-        const logo = document.getElementById('logoContainer');
-        if(logo) logo.innerHTML = AshLooperIcons.getLogo();
-
-        Utils.updateConsole('AshReXcue WebUI V2.3 initialized');
-        Utils.updateConsole("Your friendly neighborhood root savior.");
+        Utils.updateConsole('AshReXcue WebUI V2.4 initialized');
+        Utils.updateConsole('Your friendly neighborhood root savior.');
         Utils.updateConsole('Monitoring For Loops...');
+        Utils.showToast('Your friendly neighborhood root savior.');
+    }
 
-        await Utils.displayServerInfo();
-        Utils.showToast("Your friendly neighborhood root savior.");
+    updateMainFabIcon() {
+        const active = this.tabsConfig.find(t => t.id === this.activeTab);
+        const badgeIcon = document.querySelector('#fabBadge i');
+        if (active && badgeIcon) {
+            badgeIcon.innerHTML = AshLooperIcons[active.iconMethod]();
+        }
     }
 
     setupTabNavigation() {
-        const tabBtns = document.querySelectorAll('.tab-btn');
+        const fabWrapper = document.querySelector('.fab-wrapper');
+        const fabMainBtn = document.getElementById('fabMainBtn');
+        const fabMenu = document.getElementById('fabMenu');
         const tabContents = document.querySelectorAll('.tab-content');
 
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabId = btn.getAttribute('data-tab');
+        const openFab = () => {
+            this.renderFabMenu();
+            fabMenu.classList.add('show');
+            fabMainBtn.classList.add('active');
+        };
 
-                tabBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+        const closeFab = () => {
+            fabMenu.classList.remove('show');
+            fabMainBtn.classList.remove('active');
+        };
 
-                tabContents.forEach(content => content.classList.remove('active'));
-                document.getElementById(`${tabId}Tab`).classList.add('active');
-
-                if (tabId === 'settings' && !this.settingsLoaded) {
-                    this.settingsManager.loadSettingsTab();
-                    this.settingsLoaded = true;
-                }
-            });
+        fabMainBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fabMenu.classList.contains('show') ? closeFab() : openFab();
         });
+
+        document.addEventListener('click', (e) => {
+            if (fabMenu.classList.contains('show') && !fabWrapper.contains(e.target)) {
+                closeFab();
+            }
+        });
+
+        window.addEventListener('scroll', () => {
+            if (fabMenu.classList.contains('show')) closeFab();
+        }, { passive: true });
+
+        document.querySelector('.main').addEventListener('touchmove', () => {
+            if (fabMenu.classList.contains('show')) closeFab();
+        }, { passive: true });
+
+        fabMenu.addEventListener('click', (e) => {
+            const cube = e.target.closest('.fab-cube[data-tab]');
+
+            if (!cube) return;
+
+            const tabId = cube.getAttribute('data-tab');
+            if (tabId === this.activeTab) {
+                closeFab();
+                return;
+            }
+
+            this.activeTab = tabId;
+            this.updateMainFabIcon();
+
+            document.querySelectorAll('.fab-cube[data-tab]').forEach(c => c.classList.remove('active'));
+            cube.classList.add('active');
+
+            tabContents.forEach(c => c.classList.remove('active'));
+            document.getElementById(`${tabId}Tab`).classList.add('active');
+
+            if (tabId === 'settings' && !this.settingsLoaded) {
+                this.settingsManager.loadSettingsTab();
+                this.settingsLoaded = true;
+            }
+            if (tabId === 'whitelist' && !this.whitelistLoaded) {
+                this.whitelistManager.init();
+                this.whitelistManager.loadModules();
+                this.whitelistLoaded = true;
+            }
+
+            closeFab();
+        });
+    }
+
+    renderFabMenu() {
+        const fabMenu = document.getElementById('fabMenu');
+
+        const sorted = [
+            this.tabsConfig.find(t => t.id === this.activeTab),
+            ...this.tabsConfig.filter(t => t.id !== this.activeTab),
+        ];
+
+        fabMenu.innerHTML = sorted.map(t => {
+            const isActive = t.id === this.activeTab;
+            return `
+            <button class="fab-cube${isActive ? ' fab-cube-current' : ''}" data-tab="${t.id}">
+                <i style="display:flex">${AshLooperIcons[t.iconMethod]()}</i>
+                <span>${t.label}</span>
+            </button>`;
+        }).join('');
     }
 
     setupRefreshButton() {
@@ -80,10 +161,29 @@ class AshLooperWebUI {
         });
 
         this.setupTerminalControls();
+
+        const blurInput = (e) => {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT' && e.target !== document.activeElement) {
+                document.activeElement.blur();
+            }
+        };
+        
+        document.addEventListener('touchstart', blurInput, { passive: true });
+        document.addEventListener('mousedown', blurInput, { passive: true });
+        
+        const terminal = document.getElementById('terminal');
+        if (terminal) {
+            terminal.addEventListener('scroll', () => {
+                if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                    document.activeElement.blur();
+                }
+            }, { passive: true });
+        }
     }
 
     setupTerminalControls() {
         const terminalControls = document.querySelector('.terminal-controls');
+
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.placeholder = 'Filter logs...';
@@ -91,9 +191,7 @@ class AshLooperWebUI {
         searchInput.style.display = 'none';
         searchInput.addEventListener('input', (e) => {
             this.searchQuery = e.target.value.toLowerCase();
-            if (this.currentLogFile) {
-                this.displayLogContent(this.getCurrentSessionLines());
-            }
+            if (this.currentLogFile) this.displayLogContent(this.getCurrentSessionLines());
         });
         terminalControls.insertBefore(searchInput, terminalControls.firstChild);
 
@@ -108,79 +206,87 @@ class AshLooperWebUI {
             return btn;
         };
 
-        createBtn(AshLooperIcons.getSaveIcon(), 'save-btn', 'Save', () => this.fileManager.saveToDownload());
-        createBtn(AshLooperIcons.getCopyIcon(), 'copy-btn', 'Copy', () => this.copyToClipboard());
-        createBtn(AshLooperIcons.getClearIcon(), 'clear-btn', 'Clear', () => this.clearViewer());
-        createBtn('📋 Sessions', 'session-btn', 'Sessions', () => this.showSessionSelector());
+        createBtn(AshLooperIcons.getSaveIcon(),  'save-btn',    'Save',     () => this.fileManager.saveToDownload());
+        createBtn(AshLooperIcons.getCopyIcon(),  'copy-btn',    'Copy',     () => this.copyToClipboard());
+        createBtn(AshLooperIcons.getClearIcon(), 'clear-btn',   'Clear',    () => this.clearViewer());
+        createBtn('📋 Sessions',                 'session-btn', 'Sessions', () => this.showSessionSelector());
+    }
+
+    clearSearch() {
+        this.searchQuery = '';
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) searchInput.value = '';
     }
 
     togglePopup() { document.getElementById('filePopup').classList.toggle('active'); }
-    closePopup() { document.getElementById('filePopup').classList.remove('active'); }
+    closePopup()  { document.getElementById('filePopup').classList.remove('active'); }
 
     getCurrentSessionLines() {
         if (this.currentSessionIndex === -1) return this.originalLines;
-        if (this.bootSessions[this.currentSessionIndex]) {
-            return this.bootSessions[this.currentSessionIndex].lines || [];
-        }
-        return [];
+        return this.bootSessions[this.currentSessionIndex]?.lines || [];
     }
 
     updateSelectedFile() {
-        const fileNameElement = document.getElementById('selectedFileName');
-        const elements = document.querySelectorAll('.save-btn, .copy-btn, .clear-btn, .session-btn, .search-input');
-
+        const fileNameEl = document.getElementById('selectedFileName');
+        const els = document.querySelectorAll('.save-btn, .copy-btn, .clear-btn, .session-btn, .search-input');
         if (this.currentLogFile) {
-            fileNameElement.textContent = this.currentLogFile;
-            elements.forEach(el => el.style.display = (el.tagName === 'BUTTON' ? 'flex' : 'block'));
+            fileNameEl.textContent = this.currentLogFile;
+            els.forEach(el => el.style.display = el.tagName === 'BUTTON' ? 'flex' : 'block');
         } else {
-            fileNameElement.textContent = '';
-            elements.forEach(el => el.style.display = 'none');
+            fileNameEl.textContent = '';
+            els.forEach(el => el.style.display = 'none');
         }
     }
 
     displayLogContent(lines) {
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.innerHTML = '';
+
         if (!lines || lines.length === 0) {
             terminalOutput.innerHTML = '<div class="terminal-line">[Empty file]</div>';
             return;
         }
 
-        const filtered = this.searchQuery ? lines.filter(l => l.toLowerCase().includes(this.searchQuery)) : lines;
+        const filtered = this.searchQuery
+            ? lines.filter(l => l.toLowerCase().includes(this.searchQuery))
+            : lines;
 
         filtered.forEach(line => {
-            const el = document.createElement('div');
-            el.className = 'terminal-line';
-
             if (line.includes('NEW BOOT') && line.includes('◆◆◆')) {
-               const bootNum = line.match(/BOOT (\d+)/);
-               el.innerHTML = `<div class="boot-header">🔄 NEW BOOT SESSION ${bootNum ? '#' + bootNum[1] : ''}</div>`;
-               terminalOutput.appendChild(el);
-               return;
-            }
-
-            if (line.includes('######## THE END ##########')) {
-                const bootFooter = document.createElement('div');
-                bootFooter.className = 'boot-footer';
-                bootFooter.innerHTML = '✅ BOOT SESSION COMPLETED';
-                terminalOutput.appendChild(bootFooter);
+                const bootNum = line.match(/BOOT (\d+)/);
+                const el = document.createElement('div');
+                el.className = 'terminal-line';
+                el.innerHTML = `<div class="boot-header">🔄 NEW BOOT SESSION ${bootNum ? '#' + bootNum[1] : ''}</div>`;
+                terminalOutput.appendChild(el);
                 return;
             }
 
-            if (line.includes('ERROR') || line.includes('FAILED') || line.includes('fu*ked') || line.includes('CRITICAL')) el.classList.add('error');
-            else if (line.includes('WARNING') || line.includes('CAUTION') || line.includes('Stability WARNING')) el.classList.add('warning');
-            else if (line.includes('SUCCESS') || line.includes('COMPLETED') || line.includes('OK') || line.includes('Passed')) el.classList.add('success');
-            else if (line.includes('INFO') || line.includes('STARTED') || line.includes('RUNNING') || line.includes('Executing')) el.classList.add('info');
-            else if (line.includes('RTC Status: CORRECT')) el.classList.add('rct-correct');
-            else if (line.includes('RTC Status: BACKWARD') || line.includes('RTC Status: INCORRECT')) el.classList.add('rct-incorrect');
+            if (line.includes('######## THE END ##########')) {
+                const el = document.createElement('div');
+                el.className = 'boot-footer';
+                el.innerHTML = '✅ BOOT SESSION COMPLETED';
+                terminalOutput.appendChild(el);
+                return;
+            }
+
+            const el = document.createElement('div');
+            el.className = 'terminal-line';
+
+            if      (line.includes('ERROR')   || line.includes('FAILED') || line.includes('fu*ked') || line.includes('CRITICAL')) el.classList.add('error');
+            else if (line.includes('WARNING') || line.includes('CAUTION') || line.includes('Stability WARNING'))                  el.classList.add('warning');
+            else if (line.includes('SUCCESS') || line.includes('COMPLETED') || line.includes('OK') || line.includes('Passed'))    el.classList.add('success');
+            else if (line.includes('INFO')    || line.includes('STARTED') || line.includes('RUNNING') || line.includes('Executing')) el.classList.add('info');
+            else if (line.includes('RTC Status: CORRECT'))                                                                           el.classList.add('rct-correct');
+            else if (line.includes('RTC Status: BACKWARD') || line.includes('RTC Status: INCORRECT'))                               el.classList.add('rct-incorrect');
 
             el.textContent = line;
             terminalOutput.appendChild(el);
         });
+
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
     }
 
-    showSessionSelector() {
+    showSessionSelector(onSelect, onCancel) {
         const modalOverlay = document.createElement('div');
         modalOverlay.className = 'modal-overlay';
 
@@ -197,7 +303,10 @@ class AshLooperWebUI {
         const closeBtn = document.createElement('button');
         closeBtn.className = 'sessions-modal-close';
         closeBtn.innerHTML = AshLooperIcons.getCloseIcon();
-        closeBtn.addEventListener('click', () => Utils.removeModal(modalOverlay));
+        closeBtn.addEventListener('click', () => {
+            Utils.removeModal(modalOverlay);
+            if (onCancel) onCancel();
+        });
 
         header.appendChild(title);
         header.appendChild(closeBtn);
@@ -207,57 +316,46 @@ class AshLooperWebUI {
         const sessionsList = document.createElement('div');
         sessionsList.className = 'sessions-list';
 
-        const allSessionsItem = document.createElement('div');
-        allSessionsItem.className = 'session-item';
-        allSessionsItem.innerHTML = `
+        const allItem = document.createElement('div');
+        allItem.className = 'session-item';
+        allItem.innerHTML = `
             <div class="session-boot-idx">ALL</div>
             <div class="session-main-content">
-                <div class="session-info-row">
-                    <div class="session-time">📂 All Log Data</div>
-                </div>
-                <div class="session-info-row">
-                    <div class="session-lines">Lines: ${this.originalLines.length}</div>
-                </div>
+                <div class="session-info-row"><div class="session-time">📂 All Log Data</div></div>
+                <div class="session-info-row"><div class="session-lines">Lines: ${this.originalLines.length}</div></div>
             </div>
-            <div class="session-action">
-                <button class="session-select-btn">Select</button>
-            </div>
+            <div class="session-action"><button class="session-select-btn">Select</button></div>
         `;
-        allSessionsItem.querySelector('.session-select-btn').addEventListener('click', () => {
+        allItem.querySelector('.session-select-btn').addEventListener('click', () => {
             this.currentSessionIndex = -1;
-            this.displayLogContent(this.getCurrentSessionLines());
             Utils.removeModal(modalOverlay);
+            this.clearSearch();
+            if (onSelect) onSelect();
+            else { this.updateSelectedFile(); this.displayLogContent(this.getCurrentSessionLines()); }
         });
-        sessionsList.appendChild(allSessionsItem);
+        sessionsList.appendChild(allItem);
 
         this.bootSessions.forEach((sessionObj, index) => {
+            const meta = sessionObj.meta;
+            const bootNum = meta.bootNum || '??';
+
+            let statusBadge = '';
+            if (!meta.hasEnd) {
+                const isLast = index === this.bootSessions.length - 1;
+                statusBadge = isLast
+                    ? `<div class="session-badge active">⚠️ Active Session</div>`
+                    : `<div class="session-badge loop">🚫 Bootloop</div>`;
+            }
+
+            let displayString = 'Unknown Time';
+            if (meta.rctStatus === 'Incorrect') {
+                displayString = meta.time && meta.time !== 'Unknown' ? `🕒 ${meta.time}` : '🕒 Time Unsynced';
+            } else {
+                displayString = meta.date && meta.date !== 'Unknown' ? `📅 ${meta.date} 🕒 ${meta.time}` : '📅 Unknown Date';
+            }
+
             const sessionItem = document.createElement('div');
             sessionItem.className = 'session-item';
-
-            const sessionLines = sessionObj.lines;
-            const meta = sessionObj.meta;
-
-            let bootNum = meta.bootNum || "??";
-            let statusBadge = '';
-
-            if (!meta.hasEnd) {
-                const isLastSession = index === this.bootSessions.length - 1;
-                if (isLastSession) {
-                    statusBadge = `<div class="session-badge active">⚠️ Active Session</div>`;
-                } else {
-                    statusBadge = `<div class="session-badge loop">🚫 Bootloop</div>`;
-                }
-            }
-
-            let displayString = "Unknown Time";
-            if (meta.rctStatus === 'Incorrect') {
-                 if (meta.time && meta.time !== 'Unknown') displayString = `🕒 ${meta.time}`;
-                 else displayString = "🕒 Time Unsynced";
-            } else {
-                 if (meta.date && meta.date !== 'Unknown') displayString = `📅 ${meta.date} 🕒 ${meta.time}`;
-                 else displayString = "📅 Unknown Date";
-            }
-
             sessionItem.innerHTML = `
                 <div class="session-boot-idx">Boot ${bootNum}</div>
                 <div class="session-main-content">
@@ -266,19 +364,18 @@ class AshLooperWebUI {
                         ${statusBadge}
                     </div>
                     <div class="session-info-row">
-                        <div class="session-lines">Lines: ${sessionLines.length}</div>
+                        <div class="session-lines">Lines: ${sessionObj.lines.length}</div>
                         <div class="session-lines">RCT: ${meta.rctStatus}</div>
                     </div>
                 </div>
-                <div class="session-action">
-                    <button class="session-select-btn">Select</button>
-                </div>
+                <div class="session-action"><button class="session-select-btn">Select</button></div>
             `;
-
             sessionItem.querySelector('.session-select-btn').addEventListener('click', () => {
                 this.currentSessionIndex = index;
-                this.displayLogContent(this.getCurrentSessionLines());
                 Utils.removeModal(modalOverlay);
+                this.clearSearch();
+                if (onSelect) onSelect();
+                else { this.updateSelectedFile(); this.displayLogContent(this.getCurrentSessionLines()); }
             });
             sessionsList.appendChild(sessionItem);
         });
@@ -290,20 +387,33 @@ class AshLooperWebUI {
         document.body.appendChild(modalOverlay);
 
         modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) Utils.removeModal(modalOverlay);
+            if (e.target === modalOverlay) {
+                Utils.removeModal(modalOverlay);
+                if (onCancel) onCancel();
+            }
         });
     }
 
     refreshLogs() { this.fileManager.loadLogFiles(); }
-    copyToClipboard() { Utils.copyToClipboard(this.getCurrentSessionLines().join('\n')); }
+
+    copyToClipboard() {
+        const terminalOutput = document.getElementById('terminalOutput');
+        if (!terminalOutput) return;
+        const visibleLines = Array.from(terminalOutput.querySelectorAll('.terminal-line'))
+            .map(el => el.textContent.trim())
+            .filter(t => t.length > 0)
+            .join('\n');
+        if (visibleLines) Utils.copyToClipboard(visibleLines);
+        else Utils.showToast('Nothing to copy', 'warning');
+    }
+
     clearViewer() {
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.classList.add('clearing');
         setTimeout(() => {
-            terminalOutput.innerHTML = '<div class="welcome-message"><div>AshReXcue WebUI V2.3</div><div>Cleared</div></div>';
+            terminalOutput.innerHTML = '<div class="welcome-message"><div>AshReXcue WebUI V2.4</div><div>Cleared</div></div>';
             terminalOutput.classList.remove('clearing');
-            this.searchQuery = '';
-            document.querySelector('.search-input').value = '';
+            this.clearSearch();
             this.originalLines = [];
             this.currentLogFile = null;
             this.bootSessions = [];

@@ -1,21 +1,18 @@
-# 🚀 AshReXcue v9.4 Update
+# 🚀 AshReXcue v9.5 Update
 
-### ✨ WebUI V2.3 & Settings Overhaul
-* **Tabbed Interface:** New navigation system separating **Logs** and **Settings** for a cleaner experience.
-* **Live Configuration:** Modify protection parameters (`timeout`, `threshold`, `stability_time`) directly from the browser with real-time input validation.
-* **Auto-Repair System:** The WebUI now detects corruption in `settings.prop` and automatically repairs the file structure to prevent crashes.
-* **Toast Notifications:** Added visual feedback for saving logs, updating settings, and system status.
+### ✨ WebUI V2.4 & Navigation Overhaul
+* **FAB Navigation:** Replaced the static tab bar with a slick Floating Action Button (FAB) menu for navigating between Logs, Whitelist, and Settings.
+* **Sticky Settings Footer:** The Settings tab now tracks pending changes and displays a bottom sticky action bar to save or discard unsaved modifications.
 
-### ⚙️ Core Logic Refactor (`utlis.sh`)
-* **Ghost Module Detection:** Rewrote `create_mod_list` to scan **all** folders in `/data/adb/modules/`. The script now detects and can disable "broken" modules that are missing their `module.prop` file.
-* **Sanitized Parsing:** Replaced complex `awk` logic with a standardized, robust `get_prop` function. This fixes parsing errors caused by line endings and special characters.
-* **Default Fallbacks:** Implemented strict default values (ID defaults to folder name) to ensure the JSON module list is always valid.
+### 🛡️ New Module Whitelist System
+* **Whitelist Manager:** Introduced a dedicated UI tab to protect specific modules from being disabled during a bootloop lockdown. Supports swipe gestures to toggle between "Normal" and "Whitelist" views.
+* **Core Integration:** `service.sh` and `utils.sh` now read the whitelist array to intentionally skip protected modules during `disable_new_mods` and `lockdown` events.
+* **Auto-Cleanup:** The service script now automatically cleans the whitelist string on boot, removing any orphaned modules that have been uninstalled.
 
-### 🔒 Security & CGI
-* **Smart Root Escalation:** The `exec` script now runs in standard user mode by default and only escalates to Root (`su -c`) when modifying protected files (like `settings.prop`).
-* **Enhanced Sandbox:** Stricter path validation prevents the WebUI from accessing unauthorized system partitions.
+### ⚙️ Action Menu & Input Upgrades (VSKL)
+* **Interactive CLI Menu:** `action.sh` is no longer just a WebUI launcher. It now features a full 4-option interactive menu (Open WebUI, Add to Whitelist, Remove from Whitelist, Exit).
+* **Touch Support (VSKL):** Replaced the old `chooseport` in `action.sh` with a modified VSKL (Volume/Screen Key Listener) script, allowing you to use both volume buttons and screen touches to navigate the menu.
 
-### 📦 Installer & Logging
-* **Persistent Selection:** The installer (`customize.sh`) now loops indefinitely until a valid Volume Key selection is made, preventing accidental "default" installations.
-* **Root Info:** Now displays the detected Root method and version during installation.
-* **Debug Tracing:** Added error redirection to `/cache/looper/looperbug.log` in `post-fs-data.sh` and `service.sh` to catch startup failures.
+### 🔐 Security & CGI Refactor
+* **Zero-Escape CGI Execution:** Completely eliminated quote-escaping hell in `cgi-bin/exec` by piping raw commands directly to `stdin` (`printf '%s\n' "$RAW_CMD" | su -c "$BB sh"`).
+* **Hash-Based Auth:** The WebUI no longer fetches the token via a separate HTTP request. The token is now securely passed directly via the URL hash fragment (`#TOKEN`) and cleared from the browser history instantly.

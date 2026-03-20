@@ -25,67 +25,57 @@
   <br>
 </div>
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Orbitron&weight=500&pause=1000&color=41F791&center=true&vCenter=true&width=935&height=70&lines=Advanced+Bootloop+Protection;Now+featuring+a+full+WebUI!;Smart+Detection+%26+Stability+Checks;Native+Magisk,+KernelSU+%26+Forks+Support)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Orbitron&weight=500&pause=1000&color=41F791&center=true&vCenter=true&width=935&height=70&lines=Advanced+Bootloop+Protection;Interactive+WebUI+Dashboard;Smart+Differential+Analysis;Magisk,+KernelSU,+APatch+%26+Forks)](https://git.io/typing-svg)
 
 ---
 
 ## 📖 About
 
-**AshReXcue** (formerly AshLooper) is a sophisticated boot protection module designed for **Magisk**, **KernelSU**, **APatch**, and their various **Forks**.
+**AshReXcue** (formerly AshLooper) is a sophisticated, open-source boot protection module designed for **Magisk**, **KernelSU**, **APatch**, and their various **Forks**.
 
-Unlike basic bootloop protectors that blindly disable modules, AshReXcue uses **Smart Differential Analysis** to identify exactly which module changed since the last successful boot. It features a fully interactive **WebUI Dashboard** for viewing logs and managing protection settings in real-time.
+Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules. It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors—offering a completely local experience with no cumbersome login processes or external dependencies.
 
-### 📚 [Read The Full Documentation](.github/resources/feature.md)
+### 📚 [Read The Full Feature Documentation](.github/resources/feature.md)
 
 ---
 
-## ✨ Key Features
+## ✨ Core Architecture
 
-| Feature | Description |
+| Category | Description |
 | :--- | :--- |
-| 🛡️ **Smart Detection** | Targets *only* new or modified modules using `jq`-powered JSON comparison. |
-| 💻 **WebUI Dashboard** | A "Dark Retro" interface for live logs, session history, and settings. |
-| 🔒 **Secure Sessions** | Random ports, unique tokens, and auto-shutdown (5min max / 2min idle). |
-| ⚙️ **Flexible Modes** | Choose between **Standard** (Disable) or **Nuclear** (Disable + Recovery). |
-| 📊 **Session History** | Track up to 100 previous boot attempts with RTC status validation. |
-| 🔧 **Stability Checks** | Monitors `system_server` and `surfaceflinger` to ensure a usable UI. |
+| 🛡️ **Smart Detection** | Differential tracking detects exactly what changed since the last successful boot to isolate bad modules. |
+| 💻 **Interactive WebUI** | A self-hosted localhost dashboard for real-time configuration, log viewing, and system management. |
+| 🔒 **Secure Environment** | Built-in security measures including dynamic port generation, session timeouts, and strict local authentication. |
+| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, and multiple lockdown behaviors to suit your setup. |
+| 📝 **Module Access Control** | Advanced filtering and whitelisting capabilities to protect essential system modules from automated lockdowns. |
 
 ---
 
-## 📥 Installation Guide
+## 📥 Installation
 
-Install via **Magisk**, **KernelSU**, or **APatch**. During the flashing process, use your **Volume Keys** to configure the core settings:
+Install via your preferred root manager (**Magisk**, **KernelSU**, or **APatch**).
 
-> **Volume Key Controls:**
-> * **Vol+** = Select Option
-> * **Vol-** = Confirm & Next
+The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen (if supported) to configure your baseline protection settings.
 
-1.  **Select Protection Mode:**
-    * `Standard`: Disables bad modules & Reboots System.
-    * `Nuclear`: Disables bad modules & Reboots to Recovery.
-2.  **Set Loop Threshold:**
-    * Choose between `1` to `4` failed boots before protection kicks in.
-3.  **Automatic Calibration:**
-    * The installer will auto-detect your system services.
-4.  **Advanced Monitor:**
-    * Enable/Disable extra checks for `servicemanager` and `vold`.
+> **General Controls:**
+> * **Vol+ / Touch** = Select / Next Option
+> * **Vol-** = Confirm Selection
+
+*Note: All settings configured during installation can be modified dynamically at any time via the WebUI or the local command menu.*
 
 ---
 
-## 🖥️ Dashboard Access
+## 🖥️ Accessing the Dashboard & Menu
 
-You can access the WebUI Dashboard to view logs and change settings without rebooting.
+AshReXcue features an interactive CLI-based **Action Menu** that serves as the central hub for managing the module for magisk. From this menu, you can securely launch the WebUI on localhost, add/remove modules from your Whitelist, or safely exit.
 
-### For KernelSU / APatch Users
-Simply click the **"WebUI"** or **"Open"** button in your module manager app.
+You can access this menu dynamically based on your root manager:
 
-### For Magisk Users
-You have two ways to access the dashboard:
-1.  **Action Button:** Simply tap the **"Action"** button inside the Magisk Module list.
-2.  **Terminal:** Run the following command in Termux or ADB:
-    ```bash
-    su -c "/data/adb/modules/AshLooper/action.sh"
-    ```
+### Method 1: Root Manager UI (KernelSU / APatch)
+Simply tap the **"WebUI"** button directly within your module manager application.
+
+### Method 2: Magisk & Universal
+Tap the **"Action"** button directly within the Magisk module menu. This seamlessly executes the module's built-in `action.sh` script, launching the interactive Action Menu right on your screen.
 
 ---
 
@@ -93,18 +83,18 @@ You have two ways to access the dashboard:
 
 > [!TIP]
 > **Mirrors & Updates**
-> * **Primary:** GitHub Releases
+> * **Primary:** [GitHub Releases](https://github.com/RipperHybrid/AshLooper/releases)
 > * **Mirror:** [GitLab Repository](https://gitlab.com/RipperHybrid/AshLooper)
 
 > [!WARNING]
 > **Compatibility**
-> Do not use this module alongside other bootloop protectors. They will conflict and may cause issues.
+> Do not use this module alongside other bootloop protectors (e.g., standard Magisk Bootloop Saver). They will conflict and may cause severe boot issues.
 
 ---
 
 ## 🤝 Credits
 
-* **jq Binary** – [jqlang.org](https://jqlang.org) - The engine behind the differential analysis.
+* **jq Binary** – [jqlang.org](https://jqlang.org) - The engine behind the JSON differential analysis.
 * **Cloudflare** – [Pages](https://pages.cloudflare.com/) - Reliable hosting infrastructure.
 
 ## 👤 Author
