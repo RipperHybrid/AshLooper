@@ -11,7 +11,7 @@ export class FileManager {
             const result = await Utils.ksuExec("ls -1 /cache/looper/");
             this.app.logFiles = result.split('\n')
                 .filter(file => file.trim() && /^AshReXcueSession-\d+\.log$/i.test(file.trim()))
-                .sort(); 
+                .sort();
             this.renderFileList();
             Utils.updateConsole('Log files loaded');
         } catch (error) {
@@ -35,11 +35,11 @@ export class FileManager {
         this.app.logFiles.forEach(file => {
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
-            
+
             let displayName = file;
-            if(file.includes('AshReXcueSession-')) {
+            if (file.includes('AshReXcueSession-')) {
                 const parts = file.split('-');
-                if(parts.length >= 2) {
+                if (parts.length >= 2) {
                     displayName = `Session Log ${parts[1].replace('.log', '')}`;
                 }
             }
@@ -48,7 +48,7 @@ export class FileManager {
                 <div class="file-name-display">${displayName}</div>
                 <div class="file-path">${file}</div>
             `;
-            
+
             fileItem.addEventListener('click', () => this.selectFile(file));
             fileList.appendChild(fileItem);
         });
@@ -69,17 +69,15 @@ export class FileManager {
             const content = await Utils.ksuExec(`cat /cache/looper/${filename}`);
             this.app.originalLines = content.split('\n');
             this.parseBootSessions();
-            
+
             if (this.app.bootSessions.length > 1) {
                 this.app.showSessionSelector(
                     () => {
                         this.app.currentLogFile = filename;
                         this.app.updateSelectedFile();
-                        if (terminalOutput) terminalOutput.innerHTML = prevTerminalHTML;
                         Utils.updateConsole(`Reading: ${filename}`);
                         this.app.clearSearch();
                         this.app.displayLogContent(this.app.getCurrentSessionLines());
-                        Utils.updateConsole(`Loaded ${this.app.originalLines.length} lines, ${this.app.bootSessions.length} boot sessions`);
                     },
                     () => {
                         this.app.currentLogFile = prevLogFile;
@@ -94,11 +92,9 @@ export class FileManager {
                 this.app.currentLogFile = filename;
                 this.app.currentSessionIndex = 0;
                 this.app.updateSelectedFile();
-                if (terminalOutput) terminalOutput.innerHTML = prevTerminalHTML;
                 Utils.updateConsole(`Reading: ${filename}`);
                 this.app.clearSearch();
                 this.app.displayLogContent(this.app.getCurrentSessionLines());
-                Utils.updateConsole(`Loaded ${this.app.originalLines.length} lines, ${this.app.bootSessions.length} boot sessions`);
             }
         } catch (error) {
             Utils.updateConsole(`Error reading file: ${error.message}`, 'error');
@@ -114,8 +110,8 @@ export class FileManager {
     parseBootSessions() {
         this.app.bootSessions = [];
         let currentSessionLines = [];
-        let globalLineCounter = 0; 
-        
+        let globalLineCounter = 0;
+
         let sessionMeta = {
             bootNum: '?',
             rctStatus: 'Unknown',
@@ -133,7 +129,7 @@ export class FileManager {
                     meta.endLine = endLineIndex;
                     this.app.bootSessions.push({
                         lines: displayLines,
-                        meta: {...meta}
+                        meta: { ...meta }
                     });
                 }
             }
@@ -141,15 +137,15 @@ export class FileManager {
 
         this.app.originalLines.forEach((line, index) => {
             globalLineCounter++;
-            
+
             if (line.includes('NEW BOOT') && line.includes('◆◆◆')) {
                 if (currentSessionLines.length > 0) {
                     finalizeSession(currentSessionLines, sessionMeta, globalLineCounter - 1);
                 }
-                
+
                 const bootMatch = line.match(/BOOT (\d+)/);
                 const bootNum = bootMatch ? bootMatch[1] : '?';
-                
+
                 currentSessionLines = [line];
                 sessionMeta = {
                     bootNum: bootNum,
@@ -162,7 +158,7 @@ export class FileManager {
                 };
             } else {
                 currentSessionLines.push(line);
-                
+
                 if (line.includes('RTC Status:')) {
                     if (line.includes('CORRECT')) sessionMeta.rctStatus = 'Correct';
                     else sessionMeta.rctStatus = 'Incorrect';
@@ -207,7 +203,7 @@ export class FileManager {
         try {
             let destFilename;
             const sourcePath = `/cache/looper/${this.app.currentLogFile}`;
-            
+
             if (this.app.currentSessionIndex === -1) {
                 destFilename = this.app.currentLogFile;
             } else {
@@ -216,9 +212,8 @@ export class FileManager {
             }
 
             const destPath = `/storage/emulated/0/Download/${destFilename}`;
-            
+
             if (this.app.currentSessionIndex === -1) {
-                
                 await Utils.ksuExec(`cp "${sourcePath}" "${destPath}"`);
             } else {
                 const session = this.app.bootSessions[this.app.currentSessionIndex];
@@ -229,7 +224,7 @@ export class FileManager {
                 await Utils.ksuExec(`cp "${tempPath}" "${destPath}"`);
                 await Utils.ksuExec(`rm "${tempPath}"`);
             }
-            
+
             Utils.updateConsole(`Saved to ${destPath}`, 'success');
             Utils.showToast(`Saved to Downloads`);
         } catch (error) {

@@ -378,17 +378,19 @@ create_mod_list() {
 disable_new_mods() {
     local MODE=$(get_prop "mode")
     whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
+
     if [ ! -f "$MODULE_LIST" ]; then
         log "No previous module list found. Invoking lockdown."
         lockdown
         return
     fi
+
     changed_ids=$(
         "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
           ($old[0] | map({key: .id, value: .}) | from_entries) as $oldmap |
           $new[0][] as $n |
           ($oldmap[$n.id] // null) as $o |
-          if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status) then
+          if $o == null or ($n.name != $o.name or $n.version != $o.version or $n.versionCode != $o.versionCode or $n.status != $o.status or $n.size != $o.size) then
             $n.id
           else
             empty
@@ -479,4 +481,13 @@ handle_boot_loop() {
     else
         list_modules
     fi
+}
+
+trigger_crash_reboot() {
+    log "Crash detected. Restoring true loop count $real_loops and disable mode $real_disable."
+    modify_prop "loops" "$real_loops"
+    modify_prop "disable" "$real_disable"
+    handle_boot_loop
+    log "Rebooting device to cycle bootloop protection..."
+    reboot
 }

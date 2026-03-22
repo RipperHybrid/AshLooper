@@ -34,6 +34,24 @@
                         <div class="terminal-controls"></div>
                     </div>
                     <div class="terminal" id="terminal">
+                        <div class="terminal-legend">
+                            <div class="terminal-legend-line"></div>
+                            <div class="terminal-legend-items">
+                                <div class="terminal-legend-item">
+                                    <div class="terminal-legend-dot" style="background:#64FFD2;"></div>
+                                    <span style="color:#64FFD2;">Normal</span>
+                                </div>
+                                <div class="terminal-legend-item">
+                                    <div class="terminal-legend-dot" style="background:#B677FF;"></div>
+                                    <span style="color:#B677FF;">Warning</span>
+                                </div>
+                                <div class="terminal-legend-item">
+                                    <div class="terminal-legend-dot" style="background:#ef4444;"></div>
+                                    <span style="color:#ef4444;">Error</span>
+                                </div>
+                            </div>
+                            <div class="terminal-legend-line"></div>
+                        </div>
                         <div class="terminal-output" id="terminalOutput">
                             <div class="welcome-message">
                                 <div>AshReXcue WebUI V2.4</div>
@@ -65,7 +83,7 @@
                     <div id="ashS">
                         <div class="warn-row">
                             <i data-icon="warning" style="display: flex;"></i>
-                            <p>Written directly to <strong>settings.prop</strong> — changes take effect on next boot cycle.</p>
+                            <p>Written directly to <strong>settings.prop</strong> &mdash; changes take effect on next boot cycle.</p>
                         </div>
 
                         <div class="sg">
@@ -74,12 +92,12 @@
                                 <div class="sr">
                                     <div class="si" data-icon="installDate"></div>
                                     <div class="sb"><div class="st">Install date</div></div>
-                                    <span class="bv accent-badge" id="v-install-date">—</span>
+                                    <span class="bv accent-badge" id="v-install-date">&mdash;</span>
                                 </div>
                                 <div class="sr">
                                     <div class="si" data-icon="version"></div>
                                     <div class="sb"><div class="st">Version</div></div>
-                                    <span class="bv accent-badge" id="v-version">—</span>
+                                    <span class="bv accent-badge" id="v-version">&mdash;</span>
                                 </div>
                             </div>
                         </div>
@@ -90,12 +108,12 @@
                                 <div class="sr">
                                     <div class="si" data-icon="protectionMode"></div>
                                     <div class="sb"><div class="st">Protection mode</div></div>
-                                    <span class="bv" id="v-mode">—</span>
+                                    <span class="bv" id="v-mode">&mdash;</span>
                                 </div>
                                 <div class="sr">
                                     <div class="si" data-icon="logCounter"></div>
                                     <div class="sb"><div class="st">Log counter</div></div>
-                                    <span class="bv neutral-badge" id="v-log">—</span>
+                                    <span class="bv neutral-badge" id="v-log">&mdash;</span>
                                 </div>
                             </div>
                         </div>
@@ -105,20 +123,27 @@
                             <div class="sc">
                                 <div class="sr">
                                     <div class="si" data-icon="timeout"></div>
-                                    <div class="sb"><div class="st">Timeout</div><div class="sd" id="d-timeout">Max wait: 0–100s</div></div>
+                                    <div class="sb"><div class="st">Timeout</div><div class="sd" id="d-timeout">Max wait: 0&ndash;100s</div></div>
                                     <div class="stepper">
-                                        <button class="spbtn" id="s-timeout-dn">−</button>
+                                        <button class="spbtn font-num" id="s-timeout-dn">-1</button>
                                         <div class="spv" id="s-val-timeout">0s</div>
-                                        <button class="spbtn" id="s-timeout-up">+</button>
+                                        <button class="spbtn font-num" id="s-timeout-up">+1</button>
                                     </div>
                                 </div>
-                                <div class="sr">
+                                <div class="sr" style="position: relative; z-index: 10;">
                                     <div class="si" data-icon="stabilityTime"></div>
-                                    <div class="sb"><div class="st">Stability time</div><div class="sd">Range: 10–25s</div></div>
-                                    <div class="stepper">
-                                        <button class="spbtn" id="s-stability-dn">−</button>
+                                    <div class="sb"><div class="st">Stability time</div><div class="sd">Hold &plusmn; for step size</div></div>
+                                    <div class="stepper" style="position: relative; overflow: visible;">
+                                        <button class="spbtn font-num" id="s-stability-dn">-5</button>
                                         <div class="spv" id="s-val-stability">0s</div>
-                                        <button class="spbtn" id="s-stability-up">+</button>
+                                        <button class="spbtn font-num" id="s-stability-up">+5</button>
+                                        <div class="step-bubble" id="step-bubble-stability">
+                                            <div class="step-option" data-val="1">1</div>
+                                            <div class="step-option" data-val="2">2</div>
+                                            <div class="step-option" data-val="3">3</div>
+                                            <div class="step-option" data-val="4">4</div>
+                                            <div class="step-option active" data-val="5">5</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -131,9 +156,9 @@
                                     <div class="si" data-icon="threshold"></div>
                                     <div class="sb"><div class="st">Threshold</div><div class="sd">Loop strike count</div></div>
                                     <div class="stepper">
-                                        <button class="spbtn" id="s-thresh-dn">−</button>
+                                        <button class="spbtn font-num" id="s-thresh-dn">-1</button>
                                         <div class="spv" id="s-num-threshold">0</div>
-                                        <button class="spbtn" id="s-thresh-up">+</button>
+                                        <button class="spbtn font-num" id="s-thresh-up">+1</button>
                                     </div>
                                 </div>
                                 <div class="sr">

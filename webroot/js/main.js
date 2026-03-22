@@ -91,7 +91,6 @@ class AshLooperWebUI {
 
         fabMenu.addEventListener('click', (e) => {
             const cube = e.target.closest('.fab-cube[data-tab]');
-
             if (!cube) return;
 
             const tabId = cube.getAttribute('data-tab');
@@ -167,10 +166,10 @@ class AshLooperWebUI {
                 document.activeElement.blur();
             }
         };
-        
+
         document.addEventListener('touchstart', blurInput, { passive: true });
         document.addEventListener('mousedown', blurInput, { passive: true });
-        
+
         const terminal = document.getElementById('terminal');
         if (terminal) {
             terminal.addEventListener('scroll', () => {
@@ -272,12 +271,30 @@ class AshLooperWebUI {
             const el = document.createElement('div');
             el.className = 'terminal-line';
 
-            if      (line.includes('ERROR')   || line.includes('FAILED') || line.includes('fu*ked') || line.includes('CRITICAL')) el.classList.add('error');
-            else if (line.includes('WARNING') || line.includes('CAUTION') || line.includes('Stability WARNING'))                  el.classList.add('warning');
-            else if (line.includes('SUCCESS') || line.includes('COMPLETED') || line.includes('OK') || line.includes('Passed'))    el.classList.add('success');
-            else if (line.includes('INFO')    || line.includes('STARTED') || line.includes('RUNNING') || line.includes('Executing')) el.classList.add('info');
-            else if (line.includes('RTC Status: CORRECT'))                                                                           el.classList.add('rct-correct');
-            else if (line.includes('RTC Status: BACKWARD') || line.includes('RTC Status: INCORRECT'))                               el.classList.add('rct-incorrect');
+            if (
+                line.includes('CRITICAL') ||
+                line.includes('ERROR') ||
+                line.includes('FAILED') ||
+                line.includes('fu*ked') ||
+                line.includes('Disabled module') ||
+                line.includes('Disabling ALL') ||
+                line.includes('Lockdown Mode Activated') ||
+                line.includes('Crash detected')
+            ) {
+                el.classList.add('error');
+            } else if (
+                line.includes('WARNING') ||
+                line.includes('Stability warning') ||
+                line.includes('crashed and restarted') ||
+                line.includes('missing') ||
+                line.includes('Threshold reached') ||
+                line.includes('disabling new modules') ||
+                line.includes('activating lockdown') ||
+                line.includes('Duplicate instance') ||
+                line.includes('Skipping whitelisted')
+            ) {
+                el.classList.add('warning');
+            }
 
             el.textContent = line;
             terminalOutput.appendChild(el);

@@ -4,8 +4,10 @@ MODPATH="${0%/*}"
 . "$MODPATH"/utils.sh 2>>/cache/looper/looperbug.log || exit 1
 
 loops=$(get_prop "loops")
-timeout=$(get_prop "timeout")
+real_loops=$loops
 disable_mode=$(get_prop "disable")
+real_disable=$disable_mode
+timeout=$(get_prop "timeout")
 threshold=$(get_prop "threshold")
 stability_time=$(get_prop "stability_time")
 do_check_ss=$(get_prop "check_ss")
@@ -91,13 +93,8 @@ while [ "$boot_completed" != "1" ]; do
 
     if [ "$elapsed" -ge "$timeout" ]; then
         log "Boot did NOT complete within ${timeout}s"
-        log "Debug Info: loops=$loops, threshold=$threshold, disable_mode=$disable_mode"
-        if [ "$disable_mode" = "partial" ]; then
-            log "Lockdown triggered due to repeated incomplete boots"
-            lockdown
-            exit 0
-        fi
-        handle_boot_loop
+        log "Debug Info: loops=$real_loops, threshold=$threshold, disable_mode=$real_disable"
+        trigger_crash_reboot
     fi
 
     boot_completed=$(getprop sys.boot_completed)
@@ -114,12 +111,13 @@ end_time=$(date +%s)
 elapsed=$((end_time - start_time))
 
 log "Boot completed in ${elapsed}s"
+modify_prop "loops" "0"
+modify_prop "disable" "none"
+log "Loop counter and disable mode reset early to prevent manual reboot penalties"
 
 if ! validate_tools; then
     log "CRITICAL: Tool validation failed"
-    log "Triggering protection as stability cannot be confirmed"
-    handle_boot_loop
-    exit 1
+    trigger_crash_reboot
 fi
 
 log "Tool validation passed. Using method: $CHECK_CMD"
@@ -134,15 +132,18 @@ current_time=$stability_start
 last_log_time=$current_time
 log_interval=5
 
+sysui_last_pid=""
+sysui_crash_count=0
+
 while [ "$current_time" -lt "$stability_end" ]; do
     if ! getprop sys.boot.reason >/dev/null 2>/dev/null; then
-        log "CRITICAL: Cannot read system properties. Triggering protection."
-        handle_boot_loop
-        exit 1
+        log "CRITICAL: Cannot read system properties."
+        trigger_crash_reboot
     fi
 
     ss_status=0
     sf_status=0
+    sysui_status=0
     additional_checks_failed=0
 
     if [ "$do_check_ss" = "true" ]; then
@@ -159,6 +160,25 @@ while [ "$current_time" -lt "$stability_end" ]; do
         fi
     fi
 
+    current_sysui_pid=$(pidof com.android.systemui 2>/dev/null || pgrep -f com.android.systemui 2>/dev/null)
+    set -- $current_sysui_pid
+    current_sysui_pid=$1
+
+    if [ -z "$current_sysui_pid" ]; then
+        sysui_status=1
+        log "WARNING: com.android.systemui process missing!"
+    else
+        if [ -n "$sysui_last_pid" ] && [ "$current_sysui_pid" != "$sysui_last_pid" ]; then
+            sysui_crash_count=$((sysui_crash_count + 1))
+            log "WARNING: com.android.systemui crashed and restarted. Crash count: $sysui_crash_count"
+            if [ "$sysui_crash_count" -ge 3 ]; then
+                log "CRITICAL: com.android.systemui is crash-looping!"
+                trigger_crash_reboot
+            fi
+        fi
+        sysui_last_pid="$current_sysui_pid"
+    fi
+
     if [ "$extra_stability" = "true" ]; then
         for proc in servicemanager vold logd; do
             if ! check_process "$proc"; then
@@ -168,7 +188,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
         done
     fi
 
-    if [ $ss_status -eq 0 ] && [ $sf_status -eq 0 ] && [ $additional_checks_failed -eq 0 ]; then
+    if [ $ss_status -eq 0 ] && [ $sf_status -eq 0 ] && [ $sysui_status -eq 0 ] && [ $additional_checks_failed -eq 0 ]; then
         if [ $consecutive_failures -gt 0 ]; then
             log "Stability: Critical processes have recovered."
         fi
@@ -187,9 +207,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
 
     if [ $consecutive_failures -ge $failure_threshold ]; then
         log "CRITICAL: Failed ${failure_threshold} consecutive stability checks"
-        log "Post-boot crash detected. Triggering protection."
-        handle_boot_loop
-        exit 1
+        trigger_crash_reboot
     fi
 
     sleep $check_interval
@@ -197,7 +215,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
 done
 
 log "All stability checks passed. Device is stable."
-log "Current loop value: $loops"
+log "Current loop value: $real_loops"
 
 new_timeout=$((elapsed + 15))
 modify_prop "timeout" "$new_timeout"
@@ -257,9 +275,8 @@ if [ -f "$TMP_FILE" ]; then
                 log "Failed to update module list"
             fi
         else
-            log "No module changes detected - keeping existing module list"
+            log "No module changes detected"
             rm -f "$TMP_FILE"
-            log "Temporary module list cleaned up"
         fi
     else
         log "No previous module list found. Creating new one."
@@ -273,9 +290,7 @@ else
     log "WARNING: Temporary module file not found at $TMP_FILE"
 fi
 
-modify_prop "loops" "0"
-modify_prop "disable" "none"
-log "Reset loop counter and protection mode"
+log "Reset protection mode loop counter and disable were reset at boot"
 
 current_whitelist=$(get_prop "whitelist")
 if [ -n "$current_whitelist" ]; then
@@ -300,7 +315,7 @@ if [ -n "$current_whitelist" ]; then
 
     if [ "$removed_any" -eq 1 ]; then
         modify_prop -s "whitelist" "\"$new_wl\""
-        log "Updated whitelist in settings."
+        log "Whitelist pruned: removed uninstalled modules."
     fi
 fi
 

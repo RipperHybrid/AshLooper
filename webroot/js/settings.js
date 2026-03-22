@@ -5,7 +5,7 @@ export class SettingsManager {
     constructor(mainInstance) {
         this.app = mainInstance;
         this.knownKeys = [
-            'mode', 'loops', 'disable', 'log', 
+            'mode', 'loops', 'disable', 'log',
             'timeout', 'threshold', 'stability_time', 'extra_stability',
             'install_date', 'version', 'whitelist'
         ];
@@ -91,9 +91,11 @@ export class SettingsManager {
         vMode.textContent = modeVal;
         vMode.style.background = (modeVal !== 'none' && modeVal !== '0') ? 'rgba(34,211,238,0.1)' : 'rgba(255,176,0,0.08)';
         vMode.style.color = (modeVal !== 'none' && modeVal !== '0') ? 'var(--success)' : 'var(--accent)';
+
         const t = parseInt(info.timeout) || 60;
-        const s = parseInt(info.stability_time) || 10;
+        const s = parseInt(info.stability_time) || 80;
         const th = parseInt(info.threshold) || 1;
+
         document.getElementById('s-val-timeout').textContent = t + 's';
         document.getElementById('s-val-stability').textContent = s + 's';
         document.getElementById('s-num-threshold').textContent = th;
@@ -107,8 +109,8 @@ export class SettingsManager {
         const minT = Math.max(1, (parseInt(info.timeout) || 60) - 10);
         document.getElementById('s-timeout-dn').disabled = t <= minT;
         document.getElementById('s-timeout-up').disabled = t >= 100;
-        document.getElementById('s-stability-dn').disabled = s <= 10;
-        document.getElementById('s-stability-up').disabled = s >= 25;
+        document.getElementById('s-stability-dn').disabled = s <= 35;
+        document.getElementById('s-stability-up').disabled = s >= 120;
         document.getElementById('s-thresh-dn').disabled = th <= 1;
         document.getElementById('s-thresh-up').disabled = th >= 5;
     }
@@ -117,7 +119,7 @@ export class SettingsManager {
         const info = this.app.moduleInfo;
         const originals = {
             timeout: (parseInt(info.timeout) || 60).toString(),
-            stability_time: (parseInt(info.stability_time) || 10).toString(),
+            stability_time: (parseInt(info.stability_time) || 80).toString(),
             threshold: (parseInt(info.threshold) || 1).toString(),
             extra_stability: info.extra_stability === 'true' ? 'true' : 'false'
         };
@@ -151,12 +153,72 @@ export class SettingsManager {
             markChange(key, next.toString());
         };
 
+        let stabilityStep = 5;
+        const stabUpBtn = document.getElementById('s-stability-up');
+        const stabDnBtn = document.getElementById('s-stability-dn');
+        const bubble = document.getElementById('step-bubble-stability');
+        let pressTimer;
+        let isLongPress = false;
+
+        const updateStabilityBtns = () => {
+            stabUpBtn.textContent = `+${stabilityStep}`;
+            stabDnBtn.textContent = `-${stabilityStep}`;
+        };
+
+        const startPress = () => {
+            isLongPress = false;
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                bubble.classList.add('visible');
+                if ('vibrate' in navigator) navigator.vibrate(50);
+            }, 400);
+        };
+
+        const cancelPress = () => {
+            clearTimeout(pressTimer);
+        };
+
+        [stabUpBtn, stabDnBtn].forEach(btn => {
+            btn.addEventListener('mousedown', startPress);
+            btn.addEventListener('touchstart', startPress, {passive: true});
+            btn.addEventListener('mouseup', cancelPress);
+            btn.addEventListener('mouseleave', cancelPress);
+            btn.addEventListener('touchend', cancelPress);
+            btn.addEventListener('touchcancel', cancelPress);
+            btn.addEventListener('touchmove', cancelPress, {passive: true});
+        });
+
+        bubble.querySelectorAll('.step-option').forEach(opt => {
+            opt.onclick = (e) => {
+                stabilityStep = parseInt(e.target.dataset.val);
+                bubble.querySelectorAll('.step-option').forEach(o => o.classList.remove('active'));
+                e.target.classList.add('active');
+                updateStabilityBtns();
+                bubble.classList.remove('visible');
+            };
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#step-bubble-stability') && !e.target.closest('.stepper')) {
+                bubble.classList.remove('visible');
+            }
+        });
+
+        stabUpBtn.onclick = (e) => {
+            if (isLongPress) return;
+            handleStep('stability', 'stability_time', 35, 120, stabilityStep);
+        };
+
+        stabDnBtn.onclick = (e) => {
+            if (isLongPress) return;
+            handleStep('stability', 'stability_time', 35, 120, -stabilityStep);
+        };
+
         document.getElementById('s-timeout-up').onclick = () => handleStep('timeout', 'timeout', 1, 100, 1);
         document.getElementById('s-timeout-dn').onclick = () => handleStep('timeout', 'timeout', 1, 100, -1);
-        document.getElementById('s-stability-up').onclick = () => handleStep('stability', 'stability_time', 10, 25, 1);
-        document.getElementById('s-stability-dn').onclick = () => handleStep('stability', 'stability_time', 10, 25, -1);
         document.getElementById('s-thresh-up').onclick = () => handleStep('threshold', 'threshold', 1, 5, 1);
         document.getElementById('s-thresh-dn').onclick = () => handleStep('threshold', 'threshold', 1, 5, -1);
+
         document.getElementById('s-tog-extra').onchange = (e) => markChange('extra_stability', e.target.checked ? 'true' : 'false');
 
         document.getElementById('s-btn-discard').onclick = () => {
