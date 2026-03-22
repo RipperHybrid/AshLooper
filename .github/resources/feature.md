@@ -26,7 +26,8 @@ AshReXcue isn't just a "bootloop fixer"—it's an intelligent supervisor with a 
 
 * **Initialization:** At `post-fs-data`, we snapshot your module list and increment a "Loop Counter".
 * **Monitoring:** The service waits for `sys.boot_completed` and then aggressively monitors system stability.
-* **Verification:** It checks critical processes (`system_server`, `surfaceflinger`) for a defined **Stability Time** (default 10s).
+* **Verification:** It checks critical processes (`system_server`, `surfaceflinger`) and actively tracks **SystemUI** (`com.android.systemui`) for a defined **Stability Time**.
+* **SystemUI Guard:** If SystemUI crashes and restarts 3 times during this stability window, AshReXcue instantly flags the boot as a failure and triggers protection to break the crash-loop.
 * **Success:** If stable, the Loop Counter resets, the active module list is saved as the "Known Good" state, and orphaned modules are scrubbed from the Whitelist.
 
 ### 2. The Three Stages of Lockdown
@@ -61,7 +62,7 @@ AshReXcue features a built-in interactive CLI menu accessible via your root mana
 
 ---
 
-## <a id="dashboard"></a>💻 WebUI Dashboard (V2.4)
+## <a id="dashboard"></a>💻 WebUI Dashboard (V2.5)
 
 Access your device's heartbeat through a secure, local-only web interface.
 
@@ -79,13 +80,13 @@ Access your device's heartbeat through a secure, local-only web interface.
 
 ### 📊 Dashboard Features
 
-* **Live Log Viewer:** Watch the boot logic unfold in real-time. Includes color-coded status for Errors (Red), Warnings (Yellow), and Success (Green).
+* **Live Log Viewer:** Watch the boot logic unfold in real-time. Includes a sticky color-coded legend for Normal, Warnings (Purple), and Errors (Red).
 * **Session Browser:** Travel back in time. View logs from previous boot attempts (up to 100 sessions tracked).
     * ✅ **Clean:** A successful boot.
     * 🚫 **Bootloop:** A failed attempt that triggered the counter.
     * ⚠️ **Active:** The current running session.
 * **Whitelist Manager:** A dedicated tab with swipe gestures to easily toggle modules between your "Normal" pool and your protected "Whitelist".
-* **Settings Manager:** Adjust timeouts and thresholds on the fly. Features a sticky footer action bar to track, save, or discard unsaved changes without rebooting.
+* **Settings Manager:** Adjust timeouts and thresholds on the fly. Features a sticky footer action bar to track, save, or discard unsaved changes without rebooting, complete with a long-press step-size selector.
 
 ---
 
@@ -114,8 +115,8 @@ You can adjust these values inside the WebUI > Settings tab.
 
 ### ⏳ Stability Time
 
-* **Range:** 10s - 25s
-* **Function:** How long to monitor the system *after* boot completes. If `system_server` crashes during this window, it counts as a loop.
+* **Range:** 35s - 120s
+* **Function:** How long to monitor the system *after* boot completes. If `system_server` or `surfaceflinger` is missing, or if `com.android.systemui` crash-loops (3 restarts) during this window, it triggers protection.
 
 ### 🔬 Extra Stability Checks
 
@@ -164,7 +165,7 @@ If you are stuck and need to remove AshReXcue from Recovery:
 
 <div align="center">
 
-**🛡️ AshReXcue v9.5**<br>
+**🛡️ AshReXcue v9.6**<br>
 *Your friendly neighborhood root savior.*
 
 > _Built by **AshBorn**_<br>

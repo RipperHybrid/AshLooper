@@ -39,7 +39,7 @@ class AshLooperWebUI {
         this.setupRefreshButton();
         this.fileManager.loadLogFiles();
         await this.settingsManager.loadModuleData();
-        Utils.updateConsole('AshReXcue WebUI V2.4 initialized');
+        Utils.updateConsole('AshReXcue WebUI V2.5 initialized');
         Utils.updateConsole('Your friendly neighborhood root savior.');
         Utils.updateConsole('Monitoring For Loops...');
         Utils.showToast('Your friendly neighborhood root savior.');
@@ -428,7 +428,7 @@ class AshLooperWebUI {
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.classList.add('clearing');
         setTimeout(() => {
-            terminalOutput.innerHTML = '<div class="welcome-message"><div>AshReXcue WebUI V2.4</div><div>Cleared</div></div>';
+            terminalOutput.innerHTML = '<div class="welcome-message"><div>AshReXcue WebUI V2.5</div><div>Cleared</div></div>';
             terminalOutput.classList.remove('clearing');
             this.clearSearch();
             this.originalLines = [];

@@ -43,11 +43,11 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 | Category | Description |
 | :--- | :--- |
-| 🛡️ **Smart Detection** | Differential tracking detects exactly what changed since the last successful boot to isolate bad modules. |
-| 💻 **Interactive WebUI** | A self-hosted localhost dashboard for real-time configuration, log viewing, and system management. |
-| 🔒 **Secure Environment** | Built-in security measures including dynamic port generation, session timeouts, and strict local authentication. |
-| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, and multiple lockdown behaviors to suit your setup. |
-| 📝 **Module Access Control** | Advanced filtering and whitelisting capabilities to protect essential system modules from automated lockdowns. |
+| 🛡️ **Smart Detection** | Differential tracking detects exactly what changed since the last successful boot to isolate bad modules, backed by active `SystemUI` crash monitoring. |
+| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.5) featuring FAB navigation, color-coded logs, and long-press haptic settings controls. |
+| 🔒 **Secure Environment** | Built-in security measures including dynamic port generation, session timeouts, and strict zero-escape hash-based local authentication. |
+| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, and intelligent crash-reboot cycling to suit your setup. |
+| 📝 **Module Access Control** | A dedicated Whitelist Manager with swipe-gesture UI to protect essential system modules from automated lockdowns. |
 
 ---
 
@@ -57,22 +57,22 @@ Install via your preferred root manager (**Magisk**, **KernelSU**, or **APatch**
 
 The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen (if supported) to configure your baseline protection settings.
 
-> **General Controls:**
-> * **Vol+ / Touch** = Select / Next Option
+> **General Controls (VSKL):**
+> * **Vol+ / Screen Touch** = Select / Next Option
 > * **Vol-** = Confirm Selection
 
 *Note: All settings configured during installation can be modified dynamically at any time via the WebUI or the local command menu.*
 
 ---
 
-## 🖥️ Accessing the Dashboard & Menu
+## 🖥️ Accessing the Dashboard & Action Menu
 
-AshReXcue features an interactive CLI-based **Action Menu** that serves as the central hub for managing the module for magisk. From this menu, you can securely launch the WebUI on localhost, add/remove modules from your Whitelist, or safely exit.
+AshReXcue features an interactive CLI-based **Action Menu** powered by VSKL (Volume & Screen Key Listener). This serves as the central hub for managing the module. From this 4-option menu, you can securely launch the WebUI on localhost, add/remove modules from your Whitelist, or safely exit.
 
 You can access this menu dynamically based on your root manager:
 
 ### Method 1: Root Manager UI (KernelSU / APatch)
-Simply tap the **"WebUI"** button directly within your module manager application.
+Simply tap the **"WebUI"** or **"Action"** button directly within your module manager application to spawn the interactive menu.
 
 ### Method 2: Magisk & Universal
 Tap the **"Action"** button directly within the Magisk module menu. This seamlessly executes the module's built-in `action.sh` script, launching the interactive Action Menu right on your screen.
