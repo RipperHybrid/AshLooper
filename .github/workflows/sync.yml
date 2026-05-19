@@ -1,8 +1,6 @@
 name: Sync and Release
 
 on:
-  push:
-    branches: [ "Master" ]
   workflow_dispatch:
 
 jobs:
@@ -115,7 +113,6 @@ jobs:
           REPO_SLUG: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
           COMMIT_HASH: ${{ github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
           SERVER_URL: ${{ github.server_url }}
           BRANCH_NAME: ${{ github.ref_name }}
         run: |
@@ -129,19 +126,14 @@ jobs:
           if [ "$RAW_LEN" -ge 1024 ]; then
             RAW_TEXT=$(cat /tmp/tg_raw.txt)
             TRUNCATED="${RAW_TEXT:0:950}"
-            CLEANED=$(printf '%s' "$TRUNCATED" | sed -zE 's/[[:space:]#_.,*-]+$//')
+            CLEANED=$(printf '%s' "$TRUNCATED" | sed -zE 's/[[:space:]]#.,*-]+$//')
             printf '%s....(truncated — see full commit via button below)' "$CLEANED" > /tmp/tg_caption.txt
           else
             cp /tmp/tg_raw.txt /tmp/tg_caption.txt
           fi
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            BTN_TEXT="Manual Run ⚡️"
-            BTN_URL="${SERVER_URL}/${REPO_SLUG}/actions/runs/${RUN_ID}"
-          else
-            BTN_TEXT="View Commit 📋"
-            BTN_URL="${SERVER_URL}/${REPO_SLUG}/commit/${COMMIT_HASH}"
-          fi
+          BTN_TEXT="Manual Run ⚡️"
+          BTN_URL="${SERVER_URL}/${REPO_SLUG}/actions/runs/${RUN_ID}"
 
           REPO_URL="${SERVER_URL}/${REPO_SLUG}"
           CHANGELOG_URL="${SERVER_URL}/${REPO_SLUG}/blob/${BRANCH_NAME}/changelog.md"
