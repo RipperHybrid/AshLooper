@@ -31,33 +31,25 @@ VSKL() {
   exit
 }
 
-find_busybox() {
-    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
-        if [ -f "$candidate" ] && [ -x "$candidate" ]; then
-            if "$candidate" true >/dev/null 2>&1; then
-                echo "$candidate"
-                return 0
-            fi
+generate_random_port() {
+    local attempts=0
+    local PORT
+    local PORT_HEX
+    while [ $attempts -lt 5 ]; do
+        if [ -c "/dev/urandom" ]; then
+            PORT=$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')
+            PORT=$((6000 + (PORT % 4000)))
+        else
+            PORT=$((6000 + ($(date +%s) % 4000)))
         fi
-    done
-
-    if command -v busybox >/dev/null 2>&1; then
-        sys_bb=$(command -v busybox)
-        if "$sys_bb" true >/dev/null 2>&1; then
-            echo "$sys_bb"
+        PORT_HEX=$(printf "%04X" $PORT)
+        if ! grep -q ":$PORT_HEX " /proc/net/tcp 2>/dev/null && \
+           ! grep -q ":$PORT_HEX " /proc/net/tcp6 2>/dev/null; then
+            echo "$PORT"
             return 0
         fi
-    fi
-    return 1
-}
-
-generate_random_port() {
-    if [ -c "/dev/urandom" ]; then
-        PORT=$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')
-        PORT=$((6000 + (PORT % 4000)))
-    else
-        PORT=$((6000 + ($(date +%s) % 4000)))
-    fi
+        attempts=$((attempts + 1))
+    done
     echo "$PORT"
 }
 
@@ -73,73 +65,21 @@ generate_secure_token() {
     echo "$token"
 }
 
-create_monitor_script() {
-    local PORT=$1
-    local TIMEOUT=$2
-    local MONITOR_NAME="monitor_${PORT}_$(date +%s).sh"
-
-    cat > "$MODPATH/$MONITOR_NAME" << MONITOR_EOF
-#!/system/bin/sh
-MODPATH="\${0%/*}"
-STATE_FILE="\$MODPATH/.session_state"
-SELF_SCRIPT="\$MODPATH/$MONITOR_NAME"
-
-find_busybox() {
-    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
-        if [ -f "\$candidate" ] && [ -x "\$candidate" ]; then
-            if "\$candidate" true >/dev/null 2>&1; then
-                echo "\$candidate"
-                return 0
-            fi
-        fi
-    done
-    return 1
-}
-
-send_notification() {
-    for i in 1 2 3; do
-        su 2000 -c "cmd notification post -t 'AshReXcue' '\$1' '\$2'" >/dev/null 2>&1 && break
-        sleep 1
-    done
-}
-
-cleanup_and_exit() {
-    BB=\$(find_busybox)
-    [ -n "\$BB" ] && "\$BB" pkill -f "httpd -p 127.0.0.1:$PORT"
-    send_notification "WebUI Stopped" "\$1"
-    rm -rf "\$STATE_FILE" "\$SELF_SCRIPT" "\$MODPATH/nexus_secure" "\$MODPATH"/monitor_*.sh
-    exit 0
-}
-
-BB=\$(find_busybox)
-[ -z "\$BB" ] && cleanup_and_exit "Error: Busybox not found"
-
-while [ -f "\$STATE_FILE" ]; do
-    sleep 30
-    read PORT DEADLINE LAST_ACTIVITY < "\$STATE_FILE"
-    CURRENT=\$(\$BB date +%s)
-    [ "\$CURRENT" -ge "\$DEADLINE" ] && cleanup_and_exit "Killed WebUI reached max session time (5min)"
-    IDLE=\$((CURRENT - LAST_ACTIVITY))
-    [ "\$IDLE" -ge $TIMEOUT ] && cleanup_and_exit "Killed WebUI reached Idle timeout ($((TIMEOUT/60)) min)"
-    REMAINING=\$((DEADLINE - CURRENT))
-    [ "\$REMAINING" -le 0 ] && cleanup_and_exit "Session timeout"
-done
-cleanup_and_exit "Session ended"
-MONITOR_EOF
-
-    chmod +x "$MODPATH/$MONITOR_NAME"
-    echo "$MONITOR_NAME"
-}
-
 start_server() {
     FOUND_BB=$(find_busybox)
     [ -z "$FOUND_BB" ] && { echo "- Error: Busybox not found"; return 1; }
 
+    if [ -f "$MODPATH/nexus_secure/server_port" ]; then
+        EXISTING_PORT=$(cat "$MODPATH/nexus_secure/server_port")
+        [ -n "$EXISTING_PORT" ] && "$FOUND_BB" pkill -f "httpd -p 127.0.0.1:$EXISTING_PORT"
+        rm -rf "$MODPATH/nexus_secure" "$STATE_FILE"
+    fi
+
+    "$FOUND_BB" pkill -f "httpd -p 127.0.0.1:"
+    "$FOUND_BB" pkill -f "$MODPATH/monitor.sh"
+
     RANDOM_PORT=$(generate_random_port)
     echo "- Generated port: $RANDOM_PORT"
-    "$FOUND_BB" pkill -f "httpd -p 127.0.0.1:"
-    "$FOUND_BB" pkill -f "$MODPATH/monitor_"
-    rm -rf "$MODPATH"/monitor_*.sh "$STATE_FILE" "$MODPATH/nexus_secure"
 
     TOKEN=$(generate_secure_token)
     [ -z "$TOKEN" ] && { echo "- Error: Token generation failed"; return 1; }
@@ -156,22 +96,26 @@ start_server() {
     echo "$RANDOM_PORT $DEADLINE $CURRENT_TIME" > "$STATE_FILE"
 
     [ -f "$MODPATH/webroot/cgi-bin/exec" ] && chmod +x "$MODPATH/webroot/cgi-bin/exec"
+
     BB_DIR=$("$FOUND_BB" dirname "$FOUND_BB")
     export PATH="$BB_DIR:$PATH"
+
     echo "- Starting server on port $RANDOM_PORT..."
     "$FOUND_BB" httpd -p 127.0.0.1:$RANDOM_PORT -h "$MODPATH/webroot" >/dev/null 2>&1
     sleep 1
     SERVER_PID=$("$FOUND_BB" pgrep -f "httpd -p 127.0.0.1:$RANDOM_PORT")
 
     if [ -n "$SERVER_PID" ]; then
-        MONITOR_SCRIPT=$(create_monitor_script "$RANDOM_PORT" "$MAX_IDLE_TIME")
-        su -c "sh $MODPATH/$MONITOR_SCRIPT >/dev/null 2>&1 &"
+        chmod +x "$MODPATH/monitor.sh"
+        su -c "sh $MODPATH/monitor.sh >/dev/null 2>&1 &"
+
         (
             for i in 1 2 3; do
                 su 2000 -c "cmd notification post -t 'AshReXcue' 'Server Started' 'AshReXcue WebUI Localhost Started | Idle: $((MAX_IDLE_TIME/60))min'" >/dev/null 2>&1 && break
                 sleep 1
             done
         ) &
+
         LAUNCH_PORT=$RANDOM_PORT
         LAUNCH_TOKEN=$TOKEN
         return 0

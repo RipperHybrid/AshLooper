@@ -4,179 +4,207 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>AshReXcue</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="dark-retro-mode">
-    <div class="app">
-        <header class="header">
-            <div class="header-left" style="display: flex; align-items: center; gap: 10px;">
-                <i data-icon="headerLogo" style="display: flex;"></i>
-                <h1 style="margin: 0; font-size: 1.5rem;">AshReXcue</h1>
+<body class="theme-logs">
+    <div id="toast-container"></div>
+    <div id="modal-container"></div>
+    <div id="app">
+        <div class="orb-layer" aria-hidden="true">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+        <div class="status-island" id="status-island">
+            <div class="island-logo">
+                <i data-icon="headerLogo"></i>
             </div>
-            <div class="header-right">
-                <div class="header-right-content">
-                    <span class="subtitle">Bootloop Protector</span>
-                    <div class="powered-by-badge">
-                        <span class="badge-text">Powered by AshBorn</span>
-                    </div>
-                </div>
+            <span class="island-name">AshReXcue</span>
+            <div class="island-divider"></div>
+            <div class="island-status ok" id="island-status">
+                <span class="live-dot"></span>
+                <span id="island-status-text">V2.6</span>
             </div>
-        </header>
-
-        <main class="main">
-            <div class="tab-content active" id="logsTab">
-                <div class="terminal-container">
-                    <div class="terminal-header">
-                        <button type="button" id="fileSelectBtn" class="file-select-btn">
-                            <span class="btn-text">Select Log File</span>
-                            <span id="selectedFileName" class="file-name"></span>
-                        </button>
-                        <div class="terminal-controls"></div>
-                    </div>
-                    <div class="terminal" id="terminal">
-                        <div class="terminal-legend">
-                            <div class="terminal-legend-line"></div>
-                            <div class="terminal-legend-items">
-                                <div class="terminal-legend-item">
-                                    <div class="terminal-legend-dot" style="background:#64FFD2;"></div>
-                                    <span style="color:#64FFD2;">Normal</span>
-                                </div>
-                                <div class="terminal-legend-item">
-                                    <div class="terminal-legend-dot" style="background:#B677FF;"></div>
-                                    <span style="color:#B677FF;">Warning</span>
-                                </div>
-                                <div class="terminal-legend-item">
-                                    <div class="terminal-legend-dot" style="background:#ef4444;"></div>
-                                    <span style="color:#ef4444;">Error</span>
-                                </div>
-                            </div>
-                            <div class="terminal-legend-line"></div>
-                        </div>
-                        <div class="terminal-output" id="terminalOutput">
-                            <div class="welcome-message">
-                                <div>AshReXcue WebUI V2.5</div>
-                                <div>Select a log file to view contents</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tab-content" id="whitelistTab">
-                <div class="whitelist-container">
-                    <div class="modules-filters">
-                        <div class="filter-tabs">
-                            <button class="filter-tab active" data-filter="whitelist">
-                                Whitelist <span class="filter-count" id="count-whitelist">0</span>
+        </div>
+        <main class="app-content">
+            <div id="page-content" class="page-content">
+                <div class="tab-content active" id="logsTab">
+                    <div id="logs-banner-container" class="logs-banner-container"></div>
+                    <div class="s-plane terminal-container">
+                        <div class="terminal-header">
+                            <button type="button" id="fileSelectBtn" class="file-select-btn">
+                                <span class="btn-text">Select Log File</span>
+                                <span id="selectedFileName" class="file-name"></span>
                             </button>
-                            <button class="filter-tab" data-filter="normal">
-                                Normal <span class="filter-count" id="count-normal">0</span>
-                            </button>
+                            <div class="terminal-controls"></div>
+                        </div>
+                        <div class="terminal" id="terminal">
+                            <div class="terminal-legend">
+                                <div class="terminal-legend-line"></div>
+                                <div class="terminal-legend-items">
+                                    <div class="terminal-legend-item"><div class="terminal-legend-dot" style="background:#64FFD2;"></div><span style="color:#64FFD2;">Normal</span></div>
+                                    <div class="terminal-legend-item"><div class="terminal-legend-dot" style="background:#B677FF;"></div><span style="color:#B677FF;">Warning</span></div>
+                                    <div class="terminal-legend-item"><div class="terminal-legend-dot" style="background:#ef4444;"></div><span style="color:#ef4444;">Error</span></div>
+                                </div>
+                                <div class="terminal-legend-line"></div>
+                            </div>
+                            <div class="terminal-output" id="terminalOutput">
+                                <div class="empty-state">
+                                    <div style="width: 40px; height: 40px; opacity: 0.5;"><i data-icon="fabLogs"></i></div>
+                                    <h3>AshReXcue V2.6</h3>
+                                    <p>Select a log file to view contents</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div id="modules-content" class="page-content"></div>
                 </div>
-            </div>
-
-            <div class="tab-content" id="settingsTab">
-                <div class="settings-container">
-                    <div id="ashS">
-                        <div class="warn-row">
-                            <i data-icon="warning" style="display: flex;"></i>
-                            <p>Written directly to <strong>settings.prop</strong> &mdash; changes take effect on next boot cycle.</p>
+                <div class="tab-content" id="whitelistTab">
+                    <div class="whitelist-container">
+                        <div class="modules-filters">
+                            <div class="filter-tabs">
+                                <button class="filter-tab active" data-filter="whitelist">
+                                    Whitelist <span class="filter-count" id="count-whitelist">0</span>
+                                </button>
+                                <button class="filter-tab" data-filter="normal">
+                                    Normal <span class="filter-count" id="count-normal">0</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="modules-content" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                    </div>
+                </div>
+                <div class="tab-content" id="settingsTab">
+                    <div class="settings-container" id="ashS">
+                        <div class="info-banner warn mb-4">
+                            <i data-icon="warning"></i>
+                            <span>Written directly to <strong>settings.prop</strong> — changes take effect on next boot cycle.</span>
                         </div>
 
-                        <div class="sg">
-                            <span class="sgl">Module</span>
-                            <div class="sc">
-                                <div class="sr">
-                                    <div class="si" data-icon="installDate"></div>
-                                    <div class="sb"><div class="st">Install date</div></div>
-                                    <span class="bv accent-badge" id="v-install-date">&mdash;</span>
-                                </div>
-                                <div class="sr">
-                                    <div class="si" data-icon="version"></div>
-                                    <div class="sb"><div class="st">Version</div></div>
-                                    <span class="bv accent-badge" id="v-version">&mdash;</span>
-                                </div>
+                        <div class="s-plane mb-4">
+                            <div class="s-plane-head">
+                                <div class="s-plane-icon icon-blue"><i data-icon="layerGroup"></i></div>
+                                <div class="s-plane-title">Module Info</div>
+                            </div>
+                            <div class="s-row cursor-default">
+                                <div class="s-row-body"><div class="s-row-label">Name</div></div>
+                                <span class="s-row-value ok" id="v-name">—</span>
+                            </div>
+                            <div class="s-row cursor-default">
+                                <div class="s-row-body"><div class="s-row-label">Version</div></div>
+                                <span class="s-row-value ok" id="v-version">—</span>
+                            </div>
+                            <div class="s-row cursor-default">
+                                <div class="s-row-body"><div class="s-row-label">Version Code</div></div>
+                                <span class="s-row-value ok" id="v-version-code">—</span>
+                            </div>
+                            <div class="s-row cursor-default">
+                                <div class="s-row-body"><div class="s-row-label">Author</div></div>
+                                <span class="s-row-value ok" id="v-author">—</span>
+                            </div>
+                            <div class="s-row cursor-default border-none">
+                                <div class="s-row-body"><div class="s-row-label">Module ID</div></div>
+                                <span class="s-row-value ok" id="v-module-id">—</span>
                             </div>
                         </div>
 
-                        <div class="sg">
-                            <span class="sgl">Status</span>
-                            <div class="sc">
-                                <div class="sr">
-                                    <div class="si" data-icon="protectionMode"></div>
-                                    <div class="sb"><div class="st">Protection mode</div></div>
-                                    <span class="bv" id="v-mode">&mdash;</span>
+                        <div class="s-plane mb-4">
+                            <div class="s-plane-head">
+                                <div class="s-plane-icon icon-violet"><i data-icon="protectionMode"></i></div>
+                                <div class="s-plane-title">Status & Mode</div>
+                            </div>
+                            <div class="s-row cursor-default">
+                                <div class="s-row-icon icon-gray"><i data-icon="installDate"></i></div>
+                                <div class="s-row-body"><div class="s-row-label">Install date</div></div>
+                                <span class="s-row-value ok" id="v-install-date">—</span>
+                            </div>
+                            <div class="s-row">
+                                <div class="s-row-icon icon-violet"><i data-icon="protectionMode"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Protection mode</div>
+                                    <div class="s-row-sub">Action on loop</div>
                                 </div>
-                                <div class="sr">
-                                    <div class="si" data-icon="logCounter"></div>
-                                    <div class="sb"><div class="st">Log counter</div></div>
-                                    <span class="bv neutral-badge" id="v-log">&mdash;</span>
-                                </div>
+                                <div class="custom-select-trigger" id="s-sel-mode-trigger">1 (DM)</div>
+                            </div>
+                            <div class="s-row cursor-default">
+                                <div class="s-row-icon icon-gray"><i data-icon="logCounter"></i></div>
+                                <div class="s-row-body"><div class="s-row-label">Log counter</div></div>
+                                <span class="s-row-value" id="v-log">—</span>
+                            </div>
+                            <div class="s-row cursor-default border-none">
+                                <div class="s-row-icon icon-blue"><i data-icon="bootState"></i></div>
+                                <div class="s-row-body"><div class="s-row-label">Boot state</div></div>
+                                <span class="s-row-value" id="v-boot-state">—</span>
                             </div>
                         </div>
 
-                        <div class="sg">
-                            <span class="sgl">Timing</span>
-                            <div class="sc">
-                                <div class="sr">
-                                    <div class="si" data-icon="timeout"></div>
-                                    <div class="sb"><div class="st">Timeout</div><div class="sd" id="d-timeout">Max wait: 0&ndash;100s</div></div>
-                                    <div class="stepper">
-                                        <button class="spbtn font-num" id="s-timeout-dn">-1</button>
-                                        <div class="spv" id="s-val-timeout">0s</div>
-                                        <button class="spbtn font-num" id="s-timeout-up">+1</button>
+                        <div class="s-plane mb-4">
+                            <div class="s-plane-head">
+                                <div class="s-plane-icon icon-yellow"><i data-icon="timeout"></i></div>
+                                <div class="s-plane-title">Timing Configuration</div>
+                            </div>
+                            <div class="s-row">
+                                <div class="s-row-icon icon-yellow"><i data-icon="timeout"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Timeout</div>
+                                    <div class="s-row-sub" id="d-timeout">Max wait: 0–100s</div>
+                                </div>
+                                <div class="stepper">
+                                    <button class="spbtn font-num" id="s-timeout-dn">-1</button>
+                                    <div class="spv" id="s-val-timeout">0s</div>
+                                    <button class="spbtn font-num" id="s-timeout-up">+1</button>
+                                </div>
+                            </div>
+                            <div class="s-row border-none" style="overflow: visible;">
+                                <div class="s-row-icon icon-green"><i data-icon="stabilityTime"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Stability time</div>
+                                    <div class="s-row-sub">Hold ± for step size</div>
+                                </div>
+                                <div class="stepper" style="position: relative; overflow: visible;">
+                                    <button class="spbtn font-num" id="s-stability-dn">-5</button>
+                                    <div class="spv" id="s-val-stability">0s</div>
+                                    <button class="spbtn font-num" id="s-stability-up">+5</button>
+                                    <div class="step-bubble" id="step-bubble-stability">
+                                        <div class="step-option" data-val="1">1</div>
+                                        <div class="step-option" data-val="2">2</div>
+                                        <div class="step-option" data-val="3">3</div>
+                                        <div class="step-option" data-val="4">4</div>
+                                        <div class="step-option active" data-val="5">5</div>
                                     </div>
                                 </div>
-                                <div class="sr" style="position: relative; z-index: 10;">
-                                    <div class="si" data-icon="stabilityTime"></div>
-                                    <div class="sb"><div class="st">Stability time</div><div class="sd">Hold &plusmn; for step size</div></div>
-                                    <div class="stepper" style="position: relative; overflow: visible;">
-                                        <button class="spbtn font-num" id="s-stability-dn">-5</button>
-                                        <div class="spv" id="s-val-stability">0s</div>
-                                        <button class="spbtn font-num" id="s-stability-up">+5</button>
-                                        <div class="step-bubble" id="step-bubble-stability">
-                                            <div class="step-option" data-val="1">1</div>
-                                            <div class="step-option" data-val="2">2</div>
-                                            <div class="step-option" data-val="3">3</div>
-                                            <div class="step-option" data-val="4">4</div>
-                                            <div class="step-option active" data-val="5">5</div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
-                        <div class="sg">
-                            <span class="sgl">Detection</span>
-                            <div class="sc">
-                                <div class="sr">
-                                    <div class="si" data-icon="threshold"></div>
-                                    <div class="sb"><div class="st">Threshold</div><div class="sd">Loop strike count</div></div>
-                                    <div class="stepper">
-                                        <button class="spbtn font-num" id="s-thresh-dn">-1</button>
-                                        <div class="spv" id="s-num-threshold">0</div>
-                                        <button class="spbtn font-num" id="s-thresh-up">+1</button>
-                                    </div>
+                        <div class="s-plane mb-4">
+                            <div class="s-plane-head">
+                                <div class="s-plane-icon icon-red"><i data-icon="threshold"></i></div>
+                                <div class="s-plane-title">Detection Thresholds</div>
+                            </div>
+                            <div class="s-row">
+                                <div class="s-row-icon icon-red"><i data-icon="threshold"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Threshold</div>
+                                    <div class="s-row-sub">Loop strike count</div>
                                 </div>
-                                <div class="sr">
-                                    <div class="si" data-icon="extraStability"></div>
-                                    <div class="sb"><div class="st">Extra stability</div><div class="sd">Monitoring enabled</div></div>
-                                    <label class="tog">
-                                        <input type="checkbox" id="s-tog-extra">
-                                        <div class="ttr"><div class="tth"></div></div>
-                                    </label>
+                                <div class="stepper">
+                                    <button class="spbtn font-num" id="s-thresh-dn">-1</button>
+                                    <div class="spv" id="s-num-threshold">0</div>
+                                    <button class="spbtn font-num" id="s-thresh-up">+1</button>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="footer hidden" id="s-footer">
-                            <div class="ftxt"><b id="s-change-count">0</b> unsaved change<span id="s-change-s">s</span></div>
-                            <div class="fbtns">
-                                <button class="btn-d" id="s-btn-discard">Discard</button>
-                                <button class="btn-s" id="s-btn-save">Save</button>
+                            <div class="s-row border-none">
+                                <div class="s-row-icon icon-blue"><i data-icon="extraStability"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Extra stability</div>
+                                    <div class="s-row-sub">Monitoring enabled</div>
+                                </div>
+                                <label class="tog">
+                                    <input type="checkbox" id="s-tog-extra">
+                                    <div class="ttr"><div class="tth"></div></div>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -184,20 +212,35 @@
             </div>
         </main>
 
-        <div class="fab-wrapper">
-            <div class="fab-menu" id="fabMenu"></div>
-            <button class="fab-main-btn" id="fabMainBtn">
-                <div class="icon-main"><i data-icon="fabMain" style="display: flex;"></i></div>
-                <div class="icon-close"><i data-icon="fabClose" style="display: flex;"></i></div>
-            </button>
-            <div class="fab-badge" id="fabBadge"><i style="display: flex;"></i></div>
+        <div class="changes-pill" id="changes-pill">
+            <div class="cp-mini" id="cp-mini">
+                <div class="cp-mini-dot"></div>
+                <span class="cp-mini-count" id="cp-mini-count">0 Unsaved</span>
+            </div>
+            <div class="cp-expanded" id="cp-expanded">
+                <div class="cp-expanded-label" id="cp-expanded-label"><b id="cp-count">0</b> Unsaved Changes</div>
+                <div class="cp-bar">
+                    <button class="cp-btn cp-btn-discard" id="cp-btn-discard">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Discard
+                    </button>
+                    <button class="cp-btn cp-btn-save" id="cp-btn-save">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save
+                    </button>
+                </div>
+                <div class="connector-line"></div>
+            </div>
         </div>
 
+        <nav class="pill-nav" id="bottom-nav"></nav>
         <div id="filePopup" class="popup-overlay">
             <div class="popup">
                 <div class="popup-header">
                     <h3>Select Log File</h3>
-                    <button type="button" class="close-popup">&times;</button>
+                    <button type="button" class="close-popup">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
                 </div>
                 <div class="popup-content">
                     <div class="file-list" id="fileList"></div>
@@ -205,8 +248,27 @@
                 </div>
             </div>
         </div>
-
-        <script type="module" src="js/main.js"></script>
+        <div id="modePopup" class="popup-overlay">
+            <div class="popup" style="max-width: 400px;">
+                <div class="popup-header">
+                    <h3>Protection Mode</h3>
+                    <button type="button" class="close-popup" id="closeModePopup">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="popup-content">
+                    <div class="mode-option" data-value="1">
+                        <div class="mode-title">1 (DM)</div>
+                        <div class="mode-desc">Disable Modules Only. Safest approach.</div>
+                    </div>
+                    <div class="mode-option" data-value="2">
+                        <div class="mode-title">2 (DMR)</div>
+                        <div class="mode-desc">Nuclear. Disable Modules + Reboot to Recovery.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

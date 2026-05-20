@@ -20,7 +20,10 @@ INCOMING_TOKEN=$(echo "$HTTP_X_ASH_TOKEN" | tr -d '[:space:]')
 [ "$INCOMING_TOKEN" != "$REAL_TOKEN" ] && { echo '{"code": 1, "stdout": "Invalid Token"}'; exit 1; }
 
 # --- Heartbeat ---
-[ -f "$MOD_DIR/.session_state" ] && echo "$(cat $MOD_DIR/nexus_secure/server_port) $(($(date +%s) + 300)) $(date +%s)" > "$MOD_DIR/.session_state"
+if [ -f "$MOD_DIR/.session_state" ]; then
+    read PORT DEADLINE LAST_ACTIVITY < "$MOD_DIR/.session_state"
+    echo "$PORT $DEADLINE $(date +%s)" > "$MOD_DIR/.session_state"
+fi
 
 # --- Execution Logic ---
 RAW_CMD=$(cat)
