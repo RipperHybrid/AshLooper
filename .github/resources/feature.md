@@ -20,15 +20,14 @@
 
 ## <a id="core"></a>🔧 Core Protection Logic & Lockdown Stages
 
-AshReXcue isn't just a "bootloop fixer"—it's an intelligent supervisor with a tiered escalation system.
+AshReXcue isn't just a "bootloop fixer"—it's an intelligent supervisor with a tiered escalation system, heavily optimized in v9.7 for modern Android environments.
 
 ### 1. The Boot Flow
 
-* **Initialization:** At `post-fs-data`, we snapshot your module list and increment a "Loop Counter".
-* **Monitoring:** The service waits for `sys.boot_completed` and then aggressively monitors system stability.
-* **Verification:** It checks critical processes (`system_server`, `surfaceflinger`) and actively tracks **SystemUI** (`com.android.systemui`) for a defined **Stability Time**.
-* **SystemUI Guard:** If SystemUI crashes and restarts 3 times during this stability window, AshReXcue instantly flags the boot as a failure and triggers protection to break the crash-loop.
-* **Success:** If stable, the Loop Counter resets, the active module list is saved as the "Known Good" state, and orphaned modules are scrubbed from the Whitelist.
+* **Initialization:** At `post-fs-data`, we snapshot your module list, increment a "Loop Counter", and set a strict `booting` state lock.
+* **Monitoring:** The decoupled `monitor.sh` tracking payload initializes while the main service waits for `sys.boot_completed`.
+* **SystemUI Guard:** The script aggressively tracks **SystemUI** (`com.android.systemui`) for your defined **Stability Time**. If SystemUI crashes and restarts 3 times during this stability window, AshReXcue instantly flags the boot as a failure and triggers crash-reboot protection to break the loop.
+* **Success:** If stable, the Loop Counter resets, the `booted` state unlocks, the active module list is saved as the "Known Good" state, and orphaned modules are scrubbed from the Whitelist.
 
 ### 2. The Three Stages of Lockdown
 
@@ -58,35 +57,38 @@ AshReXcue features a built-in interactive CLI menu accessible via your root mana
 
 * **VSKL (Volume/Screen Key Listener):** Navigate the Action Menu using either your physical **Volume Keys** or direct **Screen Touches**.
 * **Anti-Stall:** The input listener features a max-retry limit to prevent infinite hangs during boot or terminal execution if hardware keys aren't detected.
+* **Pre-emptive Port Verification:** Before launching the WebUI, `action.sh` actively checks `/proc/net/tcp` to ensure the dynamically generated localhost port isn't occupied by another system process, preventing launch failures.
 * **Menu Options:** Quickly launch the WebUI on localhost, manually add/remove modules from the Whitelist, or safely exit the session.
 
 ---
 
-## <a id="dashboard"></a>💻 WebUI Dashboard (V2.5)
+## <a id="dashboard"></a>💻 WebUI Dashboard (V2.6)
 
 Access your device's heartbeat through a secure, local-only web interface.
 
 ### 🎨 Interface & Navigation
 
-* **Theme:** "Dark Retro" aesthetic with a sleek, Floating Action Button (FAB) navigation menu.
+* **Glassmorphism Redesign:** Features a sleek dark UI with heavy blurs, ambient floating orb backgrounds, and an ultra-smooth bottom "Pill" navigation bar.
+* **Dynamic Base64 Banner:** The WebUI automatically decodes and renders your module's `banner` payload natively in the DOM.
 * **Touch Optimized:** Inputs automatically blur during scroll/touch events to prevent the keyboard from blocking the screen.
 
-### 🔐 Security
+### 🔒 Security & State Locks
 
+* **Active Scanning Lockout:** Enforces a strict handshake with `service.sh`. If you attempt to modify settings while the system is still `booting` (actively scanning for loops), the WebUI blocks the edits with a hard warning to prevent fatal race conditions and configuration corruption.
 * **Localhost Only:** Binds strictly to `127.0.0.1` with a randomized port.
 * **Zero-Escape Execution:** CGI scripts pipe directly to `stdin`, bypassing quote-escaping vulnerabilities entirely.
 * **Hash-Based Auth:** Session tokens are passed securely via URL hash fragments (`#TOKEN`) and instantly wiped from browser history.
-* **Auto-Kill:** The server auto-terminates after 5 minutes (max) or 2 minutes (idle) to save system resources.
 
 ### 📊 Dashboard Features
 
+* **Interactive Changes Pill:** Tweaking settings triggers a smart, floating "Changes Pill" above your nav bar. Minimize or expand it to track exactly how many unsaved modifications you have queued up before committing them.
 * **Live Log Viewer:** Watch the boot logic unfold in real-time. Includes a sticky color-coded legend for Normal, Warnings (Purple), and Errors (Red).
-* **Session Browser:** Travel back in time. View logs from previous boot attempts (up to 100 sessions tracked).
+* **Session Browser:** Travel back in time. View logs from previous boot attempts.
     * ✅ **Clean:** A successful boot.
     * 🚫 **Bootloop:** A failed attempt that triggered the counter.
     * ⚠️ **Active:** The current running session.
 * **Whitelist Manager:** A dedicated tab with swipe gestures to easily toggle modules between your "Normal" pool and your protected "Whitelist".
-* **Settings Manager:** Adjust timeouts and thresholds on the fly. Features a sticky footer action bar to track, save, or discard unsaved changes without rebooting, complete with a long-press step-size selector.
+* **Settings Manager:** Adjust timeouts and thresholds on the fly. Includes a long-press step-size selector for precise timing tuning.
 
 ---
 
@@ -98,7 +100,7 @@ You can adjust these values inside the WebUI > Settings tab.
 
 * **Function:** Protects selected modules from being disabled during a Stage 2 Standard Lockdown. (Note: A Stage 3 Full Lockdown overrides this).
 * **Auto-Maintenance:** The service automatically cleans the whitelist array on every successful boot, removing entries for modules you have uninstalled.
-* **Persistence:** Your whitelist array survives module updates and reflashes.
+* **Smart Migration:** If you upgrade to a newer AshReXcue version, the installer automatically detects and restores your old whitelist.
 
 ### ⏱️ Boot Timeout
 
@@ -116,12 +118,12 @@ You can adjust these values inside the WebUI > Settings tab.
 ### ⏳ Stability Time
 
 * **Range:** 35s - 120s
-* **Function:** How long to monitor the system *after* boot completes. If `system_server` or `surfaceflinger` is missing, or if `com.android.systemui` crash-loops (3 restarts) during this window, it triggers protection.
+* **Function:** How long to monitor the system *after* boot completes. If `com.android.systemui` crash-loops (3 restarts) during this window, it triggers protection.
 
 ### 🔬 Extra Stability Checks
 
 * **Toggle:** Enable/Disable
-* **Function:** Adds monitoring for `servicemanager`, `vold`, and `logd`.
+* **Function:** Adds additional daemon monitoring for `servicemanager`, `vold`, and `logd`.
 * **Warning:** Only enable this if you are debugging deep system crashes. On some minimal ROMs, these services might behave unexpectedly.
 
 ---
@@ -165,7 +167,7 @@ If you are stuck and need to remove AshReXcue from Recovery:
 
 <div align="center">
 
-**🛡️ AshReXcue v9.6**<br>
+**🛡️ AshReXcue v9.7**<br>
 *Your friendly neighborhood root savior.*
 
 > _Built by **AshBorn**_<br>

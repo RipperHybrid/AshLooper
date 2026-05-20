@@ -43,10 +43,10 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 | Category | Description |
 | :--- | :--- |
-| 🛡️ **Smart Detection** | Differential tracking detects exactly what changed since the last successful boot to isolate bad modules, backed by active `SystemUI` crash monitoring. |
-| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.5) featuring FAB navigation, color-coded logs, and long-press haptic settings controls. |
-| 🔒 **Secure Environment** | Built-in security measures including dynamic port generation, session timeouts, and strict zero-escape hash-based local authentication. |
-| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, and intelligent crash-reboot cycling to suit your setup. |
+| 🛡️ **Smart Detection** | Differential tracking detects exactly what changed since the last successful boot to isolate bad modules, backed by aggressive `com.android.systemui` crash-loop monitoring (3-strike threshold). |
+| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.6) featuring a sleek glassmorphism aesthetic, interactive tracker, and native base64 banner rendering. |
+| 🔒 **Secure Environment** | Built-in security measures including strict `/proc/net/tcp` port collision checks, decoupled static `monitor.sh` background tracking, and hash-based local authentication. |
+| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, and intelligent crash-reboot cycling with active state-locks to prevent race conditions. |
 | 📝 **Module Access Control** | A dedicated Whitelist Manager with swipe-gesture UI to protect essential system modules from automated lockdowns. |
 
 ---
@@ -55,7 +55,7 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 Install via your preferred root manager (**Magisk**, **KernelSU**, or **APatch**).
 
-The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen (if supported) to configure your baseline protection settings.
+The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen to configure your baseline protection settings.
 
 > **General Controls (VSKL):**
 > * **Vol+ / Screen Touch** = Select / Next Option
@@ -79,7 +79,7 @@ Tap the **"Action"** button directly within the Magisk module menu. This seamles
 
 ---
 
-## 📂 Important Notices
+## 📁 Important Notices
 
 > [!TIP]
 > **Mirrors & Updates**

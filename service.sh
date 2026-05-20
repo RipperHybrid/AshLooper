@@ -10,11 +10,8 @@ real_disable=$disable_mode
 timeout=$(get_prop "timeout")
 threshold=$(get_prop "threshold")
 stability_time=$(get_prop "stability_time")
-do_check_ss=$(get_prop "check_ss")
-do_check_sf=$(get_prop "check_sf")
 extra_stability=$(get_prop "extra_stability")
-FOUND_BB=""
-LOCKDIR="/dev/AshReXcue_service_lock"
+LOCKDIR="/dev/ashrexcue_lock"
 
 [ -z "$timeout" ] && timeout=60
 [ -z "$stability_time" ] && stability_time=80
@@ -25,7 +22,7 @@ set_log_file
 if mkdir "$LOCKDIR" 2>/dev/null; then
     log "Lock acquired: Main instance starting (PID=$$)"
 else
-    log "Duplicate instance detected (PID=$$). Exiting."
+    log "Warning duplicate instance detected (PID=$$). Exiting."
     exit 0
 fi
 
@@ -92,7 +89,7 @@ while [ "$boot_completed" != "1" ]; do
     elapsed=$((current_time - start_time))
 
     if [ "$elapsed" -ge "$timeout" ]; then
-        log "Boot did NOT complete within ${timeout}s"
+        log "Error boot did NOT complete within ${timeout}s"
         log "Debug Info: loops=$real_loops, threshold=$threshold, disable_mode=$real_disable"
         trigger_crash_reboot
     fi
@@ -116,15 +113,15 @@ modify_prop "disable" "none"
 log "Loop counter and disable mode reset early to prevent manual reboot penalties"
 
 if ! validate_tools; then
-    log "CRITICAL: Tool validation failed"
+    log "Error tool validation failed"
     trigger_crash_reboot
 fi
 
 log "Tool validation passed. Using method: $CHECK_CMD"
-log "Starting stability monitoring for ${stability_time}s"
+log "Starting SystemUI stability monitoring for ${stability_time}s"
 
 consecutive_failures=0
-failure_threshold=5
+failure_threshold=3
 check_interval=3
 stability_start=$(date +%s)
 stability_end=$((stability_start + stability_time))
@@ -137,28 +134,12 @@ sysui_crash_count=0
 
 while [ "$current_time" -lt "$stability_end" ]; do
     if ! getprop sys.boot.reason >/dev/null 2>/dev/null; then
-        log "CRITICAL: Cannot read system properties."
+        log "Error cannot read system properties."
         trigger_crash_reboot
     fi
 
-    ss_status=0
-    sf_status=0
     sysui_status=0
     additional_checks_failed=0
-
-    if [ "$do_check_ss" = "true" ]; then
-        if ! check_process "system_server"; then
-            ss_status=1
-            log "CRITICAL: system_server process missing!"
-        fi
-    fi
-
-    if [ "$do_check_sf" = "true" ]; then
-        if ! check_process "surfaceflinger"; then
-            sf_status=1
-            log "CRITICAL: surfaceflinger process missing!"
-        fi
-    fi
 
     current_sysui_pid=$(pidof com.android.systemui 2>/dev/null || pgrep -f com.android.systemui 2>/dev/null)
     set -- $current_sysui_pid
@@ -166,13 +147,13 @@ while [ "$current_time" -lt "$stability_end" ]; do
 
     if [ -z "$current_sysui_pid" ]; then
         sysui_status=1
-        log "WARNING: com.android.systemui process missing!"
+        log "Warning com.android.systemui process missing!"
     else
         if [ -n "$sysui_last_pid" ] && [ "$current_sysui_pid" != "$sysui_last_pid" ]; then
             sysui_crash_count=$((sysui_crash_count + 1))
-            log "WARNING: com.android.systemui crashed and restarted. Crash count: $sysui_crash_count"
+            log "Warning com.android.systemui crashed and restarted. Crash count: $sysui_crash_count"
             if [ "$sysui_crash_count" -ge 3 ]; then
-                log "CRITICAL: com.android.systemui is crash-looping!"
+                log "Error com.android.systemui is crash-looping!"
                 trigger_crash_reboot
             fi
         fi
@@ -183,30 +164,30 @@ while [ "$current_time" -lt "$stability_end" ]; do
         for proc in servicemanager vold logd; do
             if ! check_process "$proc"; then
                 additional_checks_failed=$((additional_checks_failed + 1))
-                log "CRITICAL: $proc process missing!"
+                log "Error $proc daemon missing!"
             fi
         done
     fi
 
-    if [ $ss_status -eq 0 ] && [ $sf_status -eq 0 ] && [ $sysui_status -eq 0 ] && [ $additional_checks_failed -eq 0 ]; then
+    if [ $sysui_status -eq 0 ] && [ $additional_checks_failed -eq 0 ]; then
         if [ $consecutive_failures -gt 0 ]; then
-            log "Stability: Critical processes have recovered."
+            log "SystemUI has recovered."
         fi
         consecutive_failures=0
 
         time_since_last_log=$((current_time - last_log_time))
         if [ $time_since_last_log -ge $log_interval ]; then
             elapsed_stability=$((current_time - stability_start))
-            log "Stability check: ${elapsed_stability}s / ${stability_time}s - OK"
+            log "Check: ${elapsed_stability}s / ${stability_time}s - OK"
             last_log_time=$current_time
         fi
     else
         consecutive_failures=$((consecutive_failures + 1))
-        log "Stability warning: Failure ${consecutive_failures}/${failure_threshold}"
+        log "Warning SystemUI missing ${consecutive_failures}/${failure_threshold}"
     fi
 
     if [ $consecutive_failures -ge $failure_threshold ]; then
-        log "CRITICAL: Failed ${failure_threshold} consecutive stability checks"
+        log "Error SystemUI missing for ${failure_threshold} consecutive checks!"
         trigger_crash_reboot
     fi
 
@@ -214,7 +195,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
     current_time=$(date +%s)
 done
 
-log "All stability checks passed. Device is stable."
+log "SystemUI stability checks passed. Device is stable."
 log "Current loop value: $real_loops"
 
 new_timeout=$((elapsed + 15))
@@ -256,7 +237,7 @@ if [ -f "$TMP_FILE" ]; then
         jq_exit_code=$?
 
         if [ $jq_exit_code -ne 0 ]; then
-            log "ERROR: jq command failed with code $jq_exit_code"
+            log "Error jq command failed with code $jq_exit_code"
             log "Output: $jq_output"
         else
             log "jq command executed successfully"
@@ -272,7 +253,7 @@ if [ -f "$TMP_FILE" ]; then
             if mv -f "$TMP_FILE" "$MODULE_LIST"; then
                 log "Module list updated successfully"
             else
-                log "Failed to update module list"
+                log "Error failed to update module list"
             fi
         else
             log "No module changes detected"
@@ -283,11 +264,11 @@ if [ -f "$TMP_FILE" ]; then
         if mv -f "$TMP_FILE" "$MODULE_LIST"; then
             log "Module list created successfully"
         else
-            log "Failed to create module list"
+            log "Error failed to create module list"
         fi
     fi
 else
-    log "WARNING: Temporary module file not found at $TMP_FILE"
+    log "Warning temporary module file not found at $TMP_FILE"
 fi
 
 log "Reset protection mode loop counter and disable were reset at boot"
@@ -319,17 +300,13 @@ if [ -n "$current_whitelist" ]; then
     fi
 fi
 
-FOUND_BB=""
-for bb in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
-    if [ -x "$bb" ]; then
-        FOUND_BB="$bb"
-        break
-    fi
-done
-
+FOUND_BB=$(find_busybox)
 if [ -n "$FOUND_BB" ]; then
-    "$FOUND_BB" pkill -f "httpd -p 127.0.0.1:" >/dev/null 2>&1
-    "$FOUND_BB" pkill -f "$MODPATH/monitor_" >/dev/null 2>&1
+    if [ -f "$MODPATH/nexus_secure/server_port" ]; then
+        PORT=$(cat "$MODPATH/nexus_secure/server_port")
+        "$FOUND_BB" pkill -f "httpd -p 127.0.0.1:$PORT" >/dev/null 2>&1
+    fi
+    "$FOUND_BB" pkill -f "$MODPATH/monitor.sh" >/dev/null 2>&1
 fi
 
 rm -f "$MODPATH"/monitor_*.sh
@@ -338,3 +315,4 @@ rm -f "$MODPATH/nexus_secure"
 
 log "WebUI cleanup: Stopped processes and removed stale files"
 log "######## THE END ##########"
+modify_prop -s "boot" "booted" "$MODPATH/settings.prop"

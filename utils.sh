@@ -41,6 +41,25 @@ chooseport() {
 delete() { rm -f "$@"; }
 delete_recursive() { rm -rf "$@"; }
 
+find_busybox() {
+    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
+        if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+            if "$candidate" true >/dev/null 2>&1; then
+                echo "$candidate"
+                return 0
+            fi
+        fi
+    done
+    if command -v busybox >/dev/null 2>&1; then
+        sys_bb=$(command -v busybox)
+        if "$sys_bb" true >/dev/null 2>&1; then
+            echo "$sys_bb"
+            return 0
+        fi
+    fi
+    return 1
+}
+
 [ -d /data/adb/ksu ] || [ -f /data/adb/ksu/ksu ] && KSU=1
 [ -d /data/adb/magisk ] || [ -f /data/adb/magisk/magisk ] && MAGISK=1
 [ -f /data/adb/apd ] && [ -d /data/adb/ap ] && APATCH=1
@@ -200,8 +219,6 @@ start_run() {
     local rtc_status="CORRECT"
     local mode=$(get_prop mode)
     local disable=$(get_prop disable)
-    local check_ss=$(get_prop check_ss)
-    local check_sf=$(get_prop check_sf)
     local extra_stability=$(get_prop extra_stability)
 
     if [ "$install_date" != "none" ] && [ "$install_date" != "unknown" ] && \
@@ -224,7 +241,6 @@ start_run() {
     log "Module Version: $(get_prop version "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
     log "Module Version Code: $(get_prop versionCode "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
     log "Mode: $mode | Disable: $disable"
-    log "Check SS: $check_ss | Check SF: $check_sf"
     log "Extra Stability: $extra_stability"
 }
 

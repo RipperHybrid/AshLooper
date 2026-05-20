@@ -10,3 +10,4 @@ start_run
 create_mod_list
 handle_boot_loop
 modify_prop "+" "loops"
+modify_prop -s "boot" "booting" "$MODPATH/settings.prop"

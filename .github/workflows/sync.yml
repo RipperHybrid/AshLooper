@@ -2,6 +2,15 @@ name: Sync and Release
 
 on:
   workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Deployment Type'
+        required: true
+        default: 'normal'
+        type: choice
+        options:
+          - normal
+          - overwrite
 
 jobs:
   sync:
@@ -28,29 +37,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Build WebUI
-        run: |
-          cd webroot
-          npm install
-          npm run build
-          cp -r cgi-bin dist/
-          cd ..
-          mv webroot webroot_src
-          mv webroot_src/dist webroot
-
-      - name: Extract Metadata
+      - name: Extract Metadata and Check Release
         id: metadata
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(/usr/bin/jq -r '.version' update.json)
           VERSION_CODE=$(/usr/bin/jq -r '.versionCode' update.json)
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          TAG="v$VERSION"
 
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            if [ "${{ github.event.inputs.deployment_type }}" = "normal" ]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "filename=AshReXcue_Bootloop_Protector_${VERSION}_${VERSION_CODE}.zip" >> $GITHUB_OUTPUT
 
@@ -61,8 +65,27 @@ jobs:
             echo "body_file=release_msg.txt" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Release Zip
+      - name: Setup Node.js
+        if: steps.metadata.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build WebUI
+        if: steps.metadata.outputs.skip != 'true'
         run: |
+          cd webroot
+          npm install
+          npm run build
+          cp -r cgi-bin dist/
+          cd ..
+          mv webroot webroot_src
+          mv webroot_src/dist webroot
+
+      - name: Create Release Zip
+        if: steps.metadata.outputs.skip != 'true'
+        run: |
+          cp .github/resources/banner.png banner
           zip -r ${{ steps.metadata.outputs.filename }} \
           jq \
           META-INF \
@@ -70,13 +93,16 @@ jobs:
           action.sh \
           customize.sh \
           utils.sh \
+          monitor.sh \
           module.prop \
           post-fs-data.sh \
           service.sh \
           settings.prop \
-          uninstall.sh
+          uninstall.sh \
+          banner
 
       - name: Check for Edit and Append Footer
+        if: steps.metadata.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -92,6 +118,7 @@ jobs:
           fi
 
       - name: Upload to GitHub Release
+        if: steps.metadata.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.metadata.outputs.tag }}
@@ -105,7 +132,7 @@ jobs:
 
       - name: Send to Telegram
         continue-on-error: true
-        if: always()
+        if: always() && steps.metadata.outputs.skip != 'true'
         env:
           BOT_TOKEN: ${{ secrets.BOTAPI }}
           CHAT_ID: ${{ secrets.CHANNEL }}

@@ -1,5 +1,10 @@
-
 . "$MODPATH/utils.sh" || { echo "! Failed to load utils.sh"; abort; }
+
+if [ -f "/data/adb/modules/AshLooper/module.prop" ] && awk -v ver="$(get_prop "version" "/data/adb/modules/AshLooper/module.prop")" 'BEGIN { exit (ver < 9.7 ? 0 : 1) }'; then
+    ui_print "- Please uninstall the existing AshLooper module first."
+    ui_print "- We modified the log system. Clean installation is required."
+    abort "- Installation aborted"
+fi
 
 MODVER=$(grep_prop version "$TMPDIR/module.prop")
 AUTHOR=$(grep_prop author "$TMPDIR/module.prop")
@@ -30,27 +35,25 @@ ui_print ""
 
 selected_mode=""
 while [ -z "$selected_mode" ]; do
-  for mode in 1 2; do
-    ui_print "  > Select Mode $mode?"
-
-    if chooseport; then
-      selected_mode="$mode"
-      break
-    else
-      ui_print "    Skipping..."
+    for mode in 1 2; do
+        ui_print "  > Select Mode $mode?"
+        if chooseport; then
+            selected_mode="$mode"
+            break
+        else
+            ui_print "    Skipping..."
+        fi
+    done
+    if [ -z "$selected_mode" ]; then
+        ui_print "  ! Selection required. Retrying..."
+        sleep 1
+        ui_print ""
     fi
-  done
-
-  if [ -z "$selected_mode" ]; then
-     ui_print "  ! Selection required. Retrying..."
-     sleep 1
-     ui_print ""
-  fi
 done
 
 case "$selected_mode" in
-  1) smode="DM"; desc="Disable Modules" ;;
-  2) smode="DMR"; desc="Disable + Recovery" ;;
+    1) smode="DM";  desc="Disable Modules" ;;
+    2) smode="DMR"; desc="Disable + Recovery" ;;
 esac
 
 modify_prop -s "mode" "$selected_mode"
@@ -70,22 +73,20 @@ ui_print ""
 
 selected_threshold=""
 while [ -z "$selected_threshold" ]; do
-  for t in 1 2 3 4; do
-    ui_print "  > Select Threshold: $t Boot(s)?"
-
-    if chooseport; then
-      selected_threshold="$t"
-      break
-    else
-      ui_print "    Skipping..."
+    for t in 1 2 3 4; do
+        ui_print "  > Select Threshold: $t Boot(s)?"
+        if chooseport; then
+            selected_threshold="$t"
+            break
+        else
+            ui_print "    Skipping..."
+        fi
+    done
+    if [ -z "$selected_threshold" ]; then
+        ui_print "  ! Selection required. Retrying..."
+        sleep 1
+        ui_print ""
     fi
-  done
-
-  if [ -z "$selected_threshold" ]; then
-     ui_print "  ! Selection required. Retrying..."
-     sleep 1
-     ui_print ""
-  fi
 done
 
 modify_prop -s "threshold" "$selected_threshold"
@@ -93,51 +94,19 @@ ui_print "  ✔ Set to: $selected_threshold boot(s)"
 
 ui_print ""
 ui_print "=================================================="
-ui_print " STEP 3 : Calibration"
+ui_print " STEP 3 : Stability Monitor"
 ui_print "=================================================="
-ui_print "- Checking system services..."
+ui_print "- SystemUI crash monitoring is always active."
+ui_print "- Enable EXTRA daemon checks (vold, logd)?"
+ui_print "  [ Vol+ = YES ]  [ Vol- = NO ]"
+ui_print ""
 
-if pgrep -x system_server >/dev/null 2>&1 || pidof system_server >/dev/null 2>&1; then
-  found_ss="true"
-  ui_print "- system_server found"
-else
-  found_ss="false"
-  ui_print "- system_server missing"
-fi
-
-if pgrep -x surfaceflinger >/dev/null 2>&1 || pidof surfaceflinger >/dev/null 2>&1; then
-  found_sf="true"
-  ui_print "- surfaceflinger found"
-else
-  found_sf="false"
-  ui_print "- surfaceflinger missing"
-fi
-
-sleep 0.5
-modify_prop -s "check_ss" "$found_ss"
-modify_prop -s "check_sf" "$found_sf"
-
-stability_check="false"
-
-if [ "$found_ss" = "true" ] && [ "$found_sf" = "true" ]; then
-  ui_print ""
-  ui_print "=================================================="
-  ui_print " STEP 4 : Advanced Monitor"
-  ui_print "=================================================="
-  ui_print "- Enable extra stability checks?"
-  ui_print "  [ Vol+ = YES ]  [ Vol- = NO ]"
-  ui_print ""
-
-  if chooseport; then
+if chooseport; then
     stability_check="true"
     ui_print "- Extra Stability: ENABLED"
-  else
+else
     stability_check="false"
     ui_print "- Extra Stability: DISABLED"
-  fi
-else
-  ui_print ""
-  ui_print "- Services missing: Skipping Advanced Monitor"
 fi
 
 modify_prop -s "extra_stability" "$stability_check"
@@ -146,8 +115,25 @@ ui_print ""
 ui_print "--------------------------------------------------"
 ui_print "- Writing Config..."
 
-oldlog=$(get_prop log "$mdir/AshLooper/settings.prop") && modify_prop -s "log" "$oldlog" "$MODPATH/settings.prop"
-oldlist=$(get_prop whitelist "$mdir/AshLooper/settings.prop") && modify_prop -s "whitelist" "$oldlist" "$MODPATH/settings.prop"
+if [ -f "$mdir/AshLooper/settings.prop" ]; then
+  oldlog=$(get_prop log "$mdir/AshLooper/settings.prop") && modify_prop -s "log" "$oldlog" "$MODPATH/settings.prop"
+  ui_print ""
+  ui_print "=================================================="
+  ui_print " STEP 4 : Restore Configuration"
+  ui_print "=================================================="
+  ui_print "- Found previous settings (Whitelist, Stability Time)."
+  ui_print "- Do you want to restore them?"
+  ui_print "  [ Vol+ = YES ]  [ Vol- = NO ]"
+  ui_print ""
+
+  if chooseport; then
+    ui_print "  ✔ Restoring old configuration..."
+    oldlist=$(get_prop whitelist "$mdir/AshLooper/settings.prop") && modify_prop -s "whitelist" "$oldlist" "$MODPATH/settings.prop"
+    old_stab=$(get_prop stability_time "$mdir/AshLooper/settings.prop") && modify_prop -s "stability_time" "$old_stab" "$MODPATH/settings.prop"
+  else
+    ui_print "  ✔ Skipping restore. Using defaults."
+  fi
+fi
 
 modify_prop -s "description" "🛡️ [Mode $smode | Threshold: $selected_threshold boots | Stability Check: $stability_check] Bootloop Saver Protection For Magisk-KernelSU/Next." "$MODPATH/module.prop"
 mkdir -p "$LOG_DIR" || { ui_print "- Error: Failed to create directory '$LOG_DIR'. Aborting." >&2; exit 1; }
