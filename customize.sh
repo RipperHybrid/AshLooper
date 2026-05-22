@@ -97,7 +97,7 @@ ui_print "=================================================="
 ui_print " STEP 3 : Stability Monitor"
 ui_print "=================================================="
 ui_print "- SystemUI crash monitoring is always active."
-ui_print "- Enable EXTRA daemon checks (vold, logd)?"
+ui_print "- Enable EXTRA daemon checks (vold, servicemanager)?"
 ui_print "  [ Vol+ = YES ]  [ Vol- = NO ]"
 ui_print ""
 

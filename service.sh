@@ -161,7 +161,7 @@ while [ "$current_time" -lt "$stability_end" ]; do
     fi
 
     if [ "$extra_stability" = "true" ]; then
-        for proc in servicemanager vold logd; do
+        for proc in servicemanager vold; do
             if ! check_process "$proc"; then
                 additional_checks_failed=$((additional_checks_failed + 1))
                 log "Error $proc daemon missing!"
