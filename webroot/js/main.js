@@ -1,7 +1,8 @@
-import { Utils } from './utils.js';
+import { Utils, ChangesPill } from './utils.js';
 import { FileManager } from './files.js';
 import { SettingsManager } from './settings.js';
 import { WhitelistManager } from './whitelist.js';
+import { ItemsManager } from './items.js';
 import { AshLooperIcons } from './icons.js';
 
 export const Config = {
@@ -9,6 +10,7 @@ export const Config = {
     moduleDir: '/data/adb/modules/AshLooper',
     modulePropPath: '/data/adb/modules/AshLooper/module.prop',
     settingsPropPath: '/data/adb/modules/AshLooper/settings.prop',
+    ashLooperDir: '/data/adb/ashlooper',
 };
 
 class AshReXcueWebUI {
@@ -22,18 +24,24 @@ class AshReXcueWebUI {
         this.currentSessionIndex = -1;
         this.settingsLoaded = false;
         this.whitelistLoaded = false;
+        this.itemsLoaded = false;
         this.activeTab = 'logs';
         this.forceSettingsEdit = false;
+        this.isSwitchingTab = false;
+        this.currentJsonRaw = '';
 
         this.tabsConfig = [
             { id: 'logs',      label: 'Logs',      iconMethod: 'getFabLogsIcon' },
             { id: 'whitelist', label: 'Whitelist', iconMethod: 'getFabWhitelistIcon' },
+            { id: 'items',     label: 'Items',     iconMethod: 'getLayerGroupIcon' },
             { id: 'settings',  label: 'Settings',  iconMethod: 'getFabSettingsIcon' }
         ];
 
+        this.pill = new ChangesPill();
         this.fileManager = new FileManager(this);
         this.settingsManager = new SettingsManager(this);
         this.whitelistManager = new WhitelistManager(this);
+        this.itemsManager = new ItemsManager(this);
         this.init();
     }
 
@@ -44,27 +52,12 @@ class AshReXcueWebUI {
         this.setupRefreshButton();
         this.fileManager.loadLogFiles();
         await this.settingsManager.loadModuleData();
-        this.loadBanner();
+
+        const env = (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') ? 'KSU WebUI' : 'Localhost';
 
         Utils.updateConsole('AshReXcue WebUI V2.6 initialized');
-        Utils.updateConsole('Your friendly neighborhood root savior.');
+        Utils.updateConsole(`Connection: ${env}`);
         Utils.updateConsole('Monitoring For Loops...');
-    }
-
-    async loadBanner() {
-        try {
-            const rawB64 = await Utils.ksuExec(`base64 "/data/adb/modules/AshLooper/banner" 2>/dev/null`);
-            if (rawB64) {
-                const cleanB64 = rawB64.replace(/\s+/g, '');
-                if (cleanB64.length > 100) {
-                    const bannerContainer = document.getElementById('logs-banner-container');
-                    if (bannerContainer) {
-                        bannerContainer.innerHTML = `<img src="data:image/png;base64,${cleanB64}" class="logs-banner">`;
-                        bannerContainer.style.display = 'block';
-                    }
-                }
-            }
-        } catch (err) {}
     }
 
     renderNav() {
@@ -78,65 +71,145 @@ class AshReXcueWebUI {
         `).join('');
         nav.querySelectorAll('.nav-item').forEach(btn => {
             btn.addEventListener('click', e => {
+                if (this.isSwitchingTab) return;
                 const tabId = e.currentTarget.dataset.tab;
                 if (this.activeTab !== tabId) this.switchTab(tabId);
             });
         });
     }
 
+    async refreshBootState() {
+        try {
+            const raw = await Utils.ksuExec(`grep '^boot=' "${Config.settingsPropPath}" 2>/dev/null | cut -d'=' -f2-`);
+            const val = raw.trim();
+            if (val) this.moduleInfo.boot = val;
+        } catch (error) {}
+    }
+
     async switchTab(tabId) {
-        if (this.activeTab === 'settings' && this.settingsLoaded) {
-            if (Object.keys(this.settingsManager.pendingChanges).length > 0) {
-                this.settingsManager._discard();
-            }
-        } else if (this.activeTab === 'whitelist' && this.whitelistLoaded) {
-            if (this.whitelistManager.selectedModules.size > 0) {
-                this.whitelistManager._discard();
-            }
+        if (this.isSwitchingTab) return;
+
+        if (tabId === 'settings' || tabId === 'whitelist' || tabId === 'items') {
+            await this.refreshBootState();
         }
 
-        if ((tabId === 'settings' || tabId === 'whitelist') && !this.forceSettingsEdit) {
-            Utils.showLoadingSpinner(true);
-            await this.settingsManager.loadModuleData();
-            Utils.showLoadingSpinner(false);
-
-            if (this.moduleInfo.boot === 'booting') {
-                this.showBootingWarning(tabId);
-                return;
-            }
+        if (this.moduleInfo.boot === 'booting' && (tabId === 'settings' || tabId === 'whitelist' || tabId === 'items') && !this.forceSettingsEdit) {
+            this.showBootingWarning(tabId);
+            return;
         }
 
         this.executeTabSwitch(tabId);
+        this.isSwitchingTab = true;
+
+        setTimeout(async () => {
+            try {
+                if (tabId === 'settings') {
+                    if (!this.settingsLoaded) {
+                        await this.settingsManager.loadSettingsTab();
+                        this.settingsLoaded = true;
+                    } else {
+                        this.settingsManager.updateUI();
+                    }
+                } else if (tabId === 'whitelist') {
+                    if (!this.whitelistLoaded) {
+                        this.whitelistManager.init();
+                        await this.whitelistManager.loadModules(true);
+                        this.whitelistLoaded = true;
+                    } else {
+                        this.whitelistManager.updateUI();
+                    }
+                } else if (tabId === 'items') {
+                    if (!this.itemsLoaded) {
+                        this.itemsManager.init();
+                        await this.itemsManager.loadItems(true);
+                        this.itemsManager.bindEvents();
+                        this.itemsLoaded = true;
+                    } else {
+                        this.itemsManager.updateUI();
+                    }
+                }
+            } finally {
+                this.forceSettingsEdit = false;
+                this.isSwitchingTab = false;
+            }
+        }, 50);
     }
 
     executeTabSwitch(tabId) {
         this.activeTab = tabId;
         this.renderNav();
         document.body.className = `theme-${tabId}`;
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         const activeTabEl = document.getElementById(`${tabId}Tab`);
         if (activeTabEl) activeTabEl.classList.add('active');
+    }
 
-        if (tabId === 'settings') {
-            if (!this.settingsLoaded) {
-                this.settingsManager.loadSettingsTab();
-                this.settingsLoaded = true;
-            } else {
-                this.settingsManager.updateUI();
-            }
-        } else if (tabId === 'whitelist') {
-            if (!this.whitelistLoaded) {
-                this.whitelistManager.init();
-                this.whitelistManager.loadModules();
-                this.whitelistLoaded = true;
-            } else {
-                this.whitelistManager.loadModules();
+    updateGlobalPill() {
+        const sm = this.settingsManager;
+        const wm = this.whitelistManager;
+        const im = this.itemsManager;
+
+        const settingsCount = sm.pendingChanges ? Object.keys(sm.pendingChanges).length : 0;
+        const whitelistCount = wm.pendingChanges ? wm.pendingChanges.size : 0;
+        const itemsCount = im.pendingChanges ? im.pendingChanges.size : 0;
+
+        const total = settingsCount + whitelistCount + itemsCount;
+
+        let mode = 'default';
+        let hasAdd = false;
+        let hasRemove = false;
+
+        if (im.pendingChanges) {
+            for (let val of im.pendingChanges.values()) {
+                if (val) hasAdd = true;
+                else hasRemove = true;
             }
         }
+        if (wm.pendingChanges) {
+            for (let val of wm.pendingChanges.values()) {
+                if (val) hasAdd = true;
+                else hasRemove = true;
+            }
+        }
+        if (settingsCount > 0) {
+            const smTypes = sm.getChangeTypes();
+            if (smTypes.hasAdd) hasAdd = true;
+            if (smTypes.hasRemove) hasRemove = true;
+        }
 
-        this.forceSettingsEdit = false;
+        if (hasAdd && hasRemove) mode = 'mixed';
+        else if (hasRemove && !hasAdd) mode = 'remove';
+
+        if (total > 0) {
+            this.pill.update(total, {
+                onSave: async () => {
+                    this.pill.setSaving(true);
+                    Utils.showLoadingSpinner(true);
+
+                    if (settingsCount > 0) await sm._save(true);
+                    if (whitelistCount > 0) await wm.applyChanges(true);
+                    if (itemsCount > 0) await im.applyChanges(true);
+
+                    this.pill.setSaving(false);
+                    this.pill.hide();
+                    Utils.showLoadingSpinner(false);
+                    Utils.showToast('All changes saved', 'success');
+                },
+                onDiscard: () => {
+                    if (settingsCount > 0) sm._discard(true);
+                    if (whitelistCount > 0) wm._discard(true);
+                    if (itemsCount > 0) im._discard(true);
+
+                    this.pill.hide();
+                    Utils.showToast('All changes discarded', 'info');
+                },
+                mode: mode
+            });
+        } else {
+            this.pill.hide();
+        }
     }
 
     showBootingWarning(targetTab) {
@@ -172,16 +245,20 @@ class AshReXcueWebUI {
         modalOverlay.appendChild(modalContent);
         document.body.appendChild(modalOverlay);
 
+        document.body.classList.add('popup-open');
+
         document.getElementById('btnCancelForce').onclick = () => {
             modalOverlay.classList.remove('active');
             setTimeout(() => modalOverlay.remove(), 300);
+            document.body.classList.remove('popup-open');
         };
 
         document.getElementById('btnForceEdit').onclick = () => {
             modalOverlay.classList.remove('active');
             setTimeout(() => modalOverlay.remove(), 300);
+            document.body.classList.remove('popup-open');
             this.forceSettingsEdit = true;
-            this.executeTabSwitch(targetTab);
+            this.switchTab(targetTab);
         };
     }
 
@@ -195,16 +272,121 @@ class AshReXcueWebUI {
 
     setupEventListeners() {
         const fileSelectBtn = document.getElementById('fileSelectBtn');
-        const closePopup = document.querySelector('.close-popup');
+        const closeFilePopupBtn = document.getElementById('closeFilePopup');
         const popupOverlay = document.getElementById('filePopup');
 
         if(fileSelectBtn) fileSelectBtn.addEventListener('click', () => this.togglePopup());
-        if(closePopup) closePopup.addEventListener('click', () => this.closePopup());
+        if(closeFilePopupBtn) closeFilePopupBtn.addEventListener('click', () => this.closePopup());
         if(popupOverlay) {
             popupOverlay.addEventListener('click', (e) => {
                 if (e.target === popupOverlay) this.closePopup();
             });
         }
+
+        const appHeaderBtn = document.getElementById('appHeaderBtn');
+        const moduleInfoPopup = document.getElementById('moduleInfoPopup');
+        const closeModuleInfoPopup = document.getElementById('closeModuleInfoPopup');
+
+        if (appHeaderBtn) {
+            appHeaderBtn.style.cursor = 'pointer';
+            appHeaderBtn.addEventListener('click', (e) => {
+                if (e.target.closest('#globalHelpBtn') || e.target.closest('#jsonViewerBtn')) return;
+                this.openModuleInfoPopup();
+            });
+        }
+        if (closeModuleInfoPopup) {
+            closeModuleInfoPopup.addEventListener('click', () => {
+                if (moduleInfoPopup) moduleInfoPopup.classList.remove('active');
+                document.body.classList.remove('popup-open');
+            });
+        }
+        if (moduleInfoPopup) {
+            moduleInfoPopup.addEventListener('click', (e) => {
+                if (e.target === moduleInfoPopup) {
+                    moduleInfoPopup.classList.remove('active');
+                    document.body.classList.remove('popup-open');
+                }
+            });
+        }
+
+        const globalHelpBtn = document.getElementById('globalHelpBtn');
+        const globalHelpPopup = document.getElementById('globalHelpPopup');
+        const closeGlobalHelpPopup = document.getElementById('closeGlobalHelpPopup');
+
+        if (globalHelpBtn) {
+            globalHelpBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (globalHelpPopup) {
+                    globalHelpPopup.classList.add('active');
+                    document.body.classList.add('popup-open');
+                }
+            });
+        }
+        if (closeGlobalHelpPopup) {
+            closeGlobalHelpPopup.addEventListener('click', () => {
+                if (globalHelpPopup) globalHelpPopup.classList.remove('active');
+                document.body.classList.remove('popup-open');
+            });
+        }
+        if (globalHelpPopup) {
+            globalHelpPopup.addEventListener('click', (e) => {
+                if (e.target === globalHelpPopup) {
+                    globalHelpPopup.classList.remove('active');
+                    document.body.classList.remove('popup-open');
+                }
+            });
+        }
+
+        const jsonViewerBtn = document.getElementById('jsonViewerBtn');
+        const jsonViewerPopup = document.getElementById('jsonViewerPopup');
+        const closeJsonViewer = document.getElementById('closeJsonViewer');
+        const jsonCopyBtn = document.getElementById('jsonCopyBtn');
+
+        if (jsonViewerBtn) {
+            jsonViewerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openJsonViewer();
+            });
+        }
+        if (closeJsonViewer) {
+            closeJsonViewer.addEventListener('click', () => {
+                if (jsonViewerPopup) jsonViewerPopup.classList.remove('active');
+                document.body.classList.remove('popup-open');
+            });
+        }
+        if (jsonViewerPopup) {
+            jsonViewerPopup.addEventListener('click', (e) => {
+                if (e.target === jsonViewerPopup) {
+                    jsonViewerPopup.classList.remove('active');
+                    document.body.classList.remove('popup-open');
+                }
+            });
+        }
+        if (jsonCopyBtn) {
+            jsonCopyBtn.addEventListener('click', () => {
+                if (this.currentJsonRaw) {
+                    Utils.copyToClipboard(this.currentJsonRaw);
+                } else {
+                    Utils.showToast('Nothing to copy', 'warning');
+                }
+            });
+        }
+
+        const activityLogBtn = document.getElementById('activityLogBtn');
+        const activityLogPopup = document.getElementById('activityLogPopup');
+        const closeActivityLog = document.getElementById('closeActivityLog');
+        const activityCopyBtn = document.getElementById('activityCopyBtn');
+        const activityClearBtn = document.getElementById('activityClearBtn');
+
+        if (activityLogBtn) activityLogBtn.addEventListener('click', () => this.openActivityLog());
+        if (closeActivityLog) closeActivityLog.addEventListener('click', () => this.closeActivityLogPopup());
+        if (activityLogPopup) {
+            activityLogPopup.addEventListener('click', (e) => {
+                if (e.target === activityLogPopup) this.closeActivityLogPopup();
+            });
+        }
+        if (activityCopyBtn) activityCopyBtn.addEventListener('click', () => this.copyActivityLog());
+        if (activityClearBtn) activityClearBtn.addEventListener('click', () => this.clearActivityLog());
 
         this.setupTerminalControls();
 
@@ -219,6 +401,94 @@ class AshReXcueWebUI {
         document.addEventListener('mousedown', blurInput, { passive: true });
     }
 
+    async openModuleInfoPopup() {
+        const moduleInfoPopup = document.getElementById('moduleInfoPopup');
+        document.body.classList.add('popup-open');
+        this.settingsManager.updateModuleInfoPopup();
+        if (moduleInfoPopup) moduleInfoPopup.classList.add('active');
+        await this.settingsManager.loadModuleData();
+        this.settingsManager.updateModuleInfoPopup();
+    }
+
+    async openJsonViewer() {
+        document.body.classList.add('popup-open');
+        const popup = document.getElementById('jsonViewerPopup');
+        if (popup) popup.classList.add('active');
+        await this.loadJsonContent();
+    }
+
+    async loadJsonContent() {
+        const contentEl = document.getElementById('jsonViewerContent');
+        if (contentEl) contentEl.textContent = 'Loading...';
+        const path = `${Config.ashLooperDir}/module.json`;
+        try {
+            const raw = await Utils.ksuExec(`cat "${path}" 2>/dev/null`);
+            if (!raw || !raw.trim()) {
+                if (contentEl) contentEl.textContent = 'File not found or empty.';
+                this.currentJsonRaw = '';
+                return;
+            }
+            if (contentEl) contentEl.textContent = raw;
+            this.currentJsonRaw = raw;
+        } catch (error) {
+            if (contentEl) contentEl.textContent = 'File not found.';
+            this.currentJsonRaw = '';
+        }
+    }
+
+    escapeHtml(str) {
+        const div = document.createElement('div');
+        div.innerText = str ?? '';
+        return div.innerHTML;
+    }
+
+    async openActivityLog() {
+        document.body.classList.add('popup-open');
+        const popup = document.getElementById('activityLogPopup');
+        if (popup) popup.classList.add('active');
+        this.renderActivityLog();
+    }
+
+    closeActivityLogPopup() {
+        const popup = document.getElementById('activityLogPopup');
+        if (popup) popup.classList.remove('active');
+        document.body.classList.remove('popup-open');
+    }
+
+    renderActivityLog() {
+        const content = document.getElementById('activityLogContent');
+        if (!content) return;
+        const history = Utils.commandHistory;
+        if (history.length === 0) {
+            content.innerHTML = `<div class="debug-empty">No commands executed yet.</div>`;
+            return;
+        }
+        content.innerHTML = history.slice().reverse().map((entry, idx) => `
+            <div class="debug-entry">
+                <div class="debug-entry-head"><span>#${history.length - idx}</span><span>${this.escapeHtml(entry.time)}</span></div>
+                <div class="debug-cmd">${this.escapeHtml(entry.command)}</div>
+                <div class="${entry.error ? 'debug-err' : 'debug-out'}">${this.escapeHtml(entry.error || entry.output || '(empty)')}</div>
+            </div>
+        `).join('');
+    }
+
+    copyActivityLog() {
+        if (Utils.commandHistory.length === 0) {
+            Utils.showToast('Nothing to copy', 'warning');
+            return;
+        }
+        const text = Utils.commandHistory.map((entry, idx) =>
+            `[${idx + 1}] ${entry.time}\nCMD: ${entry.command}\n${entry.error ? `ERR: ${entry.error}` : `OUT: ${entry.output}`}\n`
+        ).join('\n-------------------\n');
+        Utils.copyToClipboard(text);
+    }
+
+    async clearActivityLog() {
+        Utils.commandHistory = [];
+        this.renderActivityLog();
+        Utils.showToast('Activity log cleared', 'info');
+    }
+
     setupTerminalControls() {
         const terminalControls = document.querySelector('.terminal-controls');
         if(!terminalControls) return;
@@ -227,7 +497,6 @@ class AshReXcueWebUI {
         terminalControls.style.flexWrap = 'wrap';
         terminalControls.style.gap = '8px';
         terminalControls.style.alignItems = 'center';
-        terminalControls.style.justifyContent = 'space-between';
 
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
@@ -275,8 +544,19 @@ class AshReXcueWebUI {
         if (searchInput) searchInput.value = '';
     }
 
-    togglePopup() { document.getElementById('filePopup').classList.toggle('active'); }
-    closePopup()  { document.getElementById('filePopup').classList.remove('active'); }
+    togglePopup() {
+        const popup = document.getElementById('filePopup');
+        popup.classList.toggle('active');
+        if (popup.classList.contains('active')) {
+            document.body.classList.add('popup-open');
+        } else {
+            document.body.classList.remove('popup-open');
+        }
+    }
+    closePopup() {
+        document.getElementById('filePopup').classList.remove('active');
+        document.body.classList.remove('popup-open');
+    }
 
     getCurrentSessionLines() {
         if (this.currentSessionIndex === -1) return this.originalLines;
@@ -324,34 +604,38 @@ class AshReXcueWebUI {
             ? lines.filter(l => l.toLowerCase().includes(this.searchQuery))
             : lines;
 
+        const frag = document.createDocumentFragment();
+
         filtered.forEach(line => {
             if (line.includes('NEW BOOT') && line.includes('◆◆◆')) {
                 const bootNum = line.match(/BOOT (\d+)/);
                 const el = document.createElement('div');
                 el.className = 'boot-header';
                 el.innerHTML = `🔄 NEW BOOT SESSION ${bootNum ? '#' + bootNum[1] : ''}`;
-                terminalOutput.appendChild(el);
+                frag.appendChild(el);
                 return;
             }
             if (line.includes('######## THE END ##########')) {
                 const el = document.createElement('div');
                 el.className = 'boot-footer';
                 el.innerHTML = '✅ BOOT SESSION COMPLETED';
-                terminalOutput.appendChild(el);
+                frag.appendChild(el);
                 return;
             }
             const el = document.createElement('div');
             el.className = 'terminal-line';
 
-            if (line.includes('Error ') || line.includes('fu*ked') || line.includes('Disabled module') || line.includes('Disabling ALL') || line.includes('Lockdown Mode') || line.includes('Crash detected')) {
+            if (line.includes('Error ') || line.includes('fu*ked') || line.includes('Disabled module') || line.includes('Disabling ALL') || line.includes('Lockdown Mode') || line.includes('Crash detected') || line.includes('NUKING') || line.includes('Nuked')) {
                 el.classList.add('error');
             } else if (line.includes('Warning ') || line.includes('Threshold reached') || line.includes('disabling new modules') || line.includes('activating lockdown') || line.includes('Duplicate instance') || line.includes('Skipping whitelisted')) {
                 el.classList.add('warning');
             }
 
             el.textContent = line;
-            terminalOutput.appendChild(el);
+            frag.appendChild(el);
         });
+
+        terminalOutput.appendChild(frag);
 
         if (!this.searchQuery) {
             terminalOutput.scrollTop = terminalOutput.scrollHeight;
@@ -359,21 +643,36 @@ class AshReXcueWebUI {
     }
 
     showSessionSelector(onSelect, onCancel) {
+        if (document.getElementById('sessionSelectorOverlay')) return;
+
         const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'sessionSelectorOverlay';
         modalOverlay.className = 'popup-overlay active';
+
         const modalContent = document.createElement('div');
         modalContent.className = 'popup';
         const header = document.createElement('div');
         header.className = 'popup-header';
         const title = document.createElement('h3');
         title.textContent = 'Select Boot Session';
+
         const closeBtn = document.createElement('button');
         closeBtn.className = 'close-popup';
         closeBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
-        closeBtn.addEventListener('click', () => {
+        document.body.classList.add('popup-open');
+
+        const closeOverlay = () => {
             modalOverlay.classList.remove('active');
-            setTimeout(() => modalOverlay.remove(), 200);
+            setTimeout(() => {
+                if (modalOverlay.parentNode) modalOverlay.parentNode.removeChild(modalOverlay);
+            }, 200);
+            document.body.classList.remove('popup-open');
+        };
+
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeOverlay();
             if (onCancel) onCancel();
         });
 
@@ -393,8 +692,7 @@ class AshReXcueWebUI {
 
         allItem.addEventListener('click', () => {
             this.currentSessionIndex = -1;
-            modalOverlay.classList.remove('active');
-            setTimeout(() => modalOverlay.remove(), 200);
+            closeOverlay();
             this.clearSearch();
             if (onSelect) onSelect();
             else { this.updateSelectedFile(); this.displayLogContent(this.getCurrentSessionLines()); }
@@ -412,18 +710,17 @@ class AshReXcueWebUI {
             }
 
             const isClean = meta.hasEnd;
-            const badge = isClean ? '' : '<span style="color: var(--yellow); font-size: 10px; margin-left: 6px; padding: 2px 6px; background: rgba(251,191,36,0.1); border-radius: 4px; border: 1px solid rgba(251,191,36,0.2);">Incomplete/Running</span>';
+            const badge = isClean ? '' : '<div class="live-dot" style="color: var(--yellow);" title="Incomplete/Running"></div>';
 
             const sessionItem = document.createElement('div');
             sessionItem.className = 'file-item';
             sessionItem.innerHTML = `
-                <div class="file-name-display">Boot ${bootNum} ${badge}</div>
-                <div class="file-path">${displayString} | Lines: ${sessionObj.lines.length}</div>
+                <div class="file-name-display"><span>Boot ${bootNum}</span> ${badge}</div>
+                <div class="file-path">${displayString} · ${sessionObj.lines.length}L</div>
             `;
             sessionItem.addEventListener('click', () => {
                 this.currentSessionIndex = index;
-                modalOverlay.classList.remove('active');
-                setTimeout(() => modalOverlay.remove(), 200);
+                closeOverlay();
                 this.clearSearch();
                 if (onSelect) onSelect();
                 else { this.updateSelectedFile(); this.displayLogContent(this.getCurrentSessionLines()); }
@@ -439,8 +736,7 @@ class AshReXcueWebUI {
 
         modalOverlay.addEventListener('click', (e) => {
             if (e.target === modalOverlay) {
-                modalOverlay.classList.remove('active');
-                setTimeout(() => modalOverlay.remove(), 200);
+                closeOverlay();
                 if (onCancel) onCancel();
             }
         });
@@ -455,11 +751,15 @@ class AshReXcueWebUI {
             .map(el => el.textContent.trim())
             .filter(t => t.length > 0)
             .join('\n');
-        if (visibleLines) Utils.copyToClipboard(visibleLines);
+        if (visibleLines) {
+            Utils.copyToClipboard(visibleLines);
+            Utils.logChange('Copied logs to clipboard');
+        }
         else Utils.showToast('Nothing to copy', 'warning');
     }
 
     clearViewer() {
+        Utils.logChange('Cleared log viewer');
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.classList.add('clearing');
         setTimeout(() => {

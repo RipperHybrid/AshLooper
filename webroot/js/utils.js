@@ -52,10 +52,20 @@ export class ChangesPill {
         }
     }
 
-    update(count, { onSave, onDiscard } = {}) {
+    update(count, { onSave, onDiscard, mode } = {}) {
         if (onSave) this.onSave = onSave;
         if (onDiscard) this.onDiscard = onDiscard;
         this._bind();
+
+        if (mode === 'remove') {
+            this.saveBtn.classList.add('btn-danger');
+            this.saveBtn.classList.remove('btn-mixed');
+        } else if (mode === 'mixed') {
+            this.saveBtn.classList.add('btn-mixed');
+            this.saveBtn.classList.remove('btn-danger');
+        } else {
+            this.saveBtn.classList.remove('btn-danger', 'btn-mixed');
+        }
 
         if (count > 0) {
             if (this.countEl) this.countEl.textContent = count;
@@ -119,6 +129,15 @@ export class Utils {
     static cachedPort = null;
     static activityTracker = null;
     static lastActivityTime = Date.now();
+    static commandHistory = [];
+
+    static lockScroll() {
+        document.body.classList.add('no-scroll');
+    }
+
+    static unlockScroll() {
+        document.body.classList.remove('no-scroll');
+    }
 
     static async getServerPort() {
         if (this.cachedPort) return this.cachedPort;
@@ -179,6 +198,53 @@ export class Utils {
         }
     }
 
+    static summarizeForHistory(command, output, error) {
+        let text = output || '';
+        if (text.trim() === '') {
+            if (error) text = 'failed';
+            else if (command.includes('rm -') || command.includes('rm ')) text = 'removed';
+            else if (command.includes('mkdir ')) text = 'created';
+            else if (command.includes('cp ')) text = 'copied';
+            else if (command.includes('mv ')) text = 'moved';
+            else if (command.includes('du -h') || command.includes('wc -c')) text = '0';
+            else if (command.includes('>') || command.includes('>>')) text = 'written';
+            else text = 'success';
+        } else if (!error) {
+            if (command.includes('ls -1')) text = `Listed ${text.trim().split('\n').length} items`;
+            else if (command.includes('find ')) text = `Found ${text.trim().split('\n').length} items`;
+            else if (command.includes('cat ') && command.includes('module.prop')) {
+                const m = text.match(/version=([^\n]+)/);
+                text = m ? `Read module.prop (v${m[1]})` : `Read module.prop`;
+            }
+            else if (command.includes('cat ') && command.includes('settings.prop')) text = `Read settings.prop`;
+            else if (command.includes('[ -f')) text = text.trim() === '1' ? 'Exists (1)' : 'Not found (0)';
+        }
+
+        if (text.length > 200) {
+            return `${text.slice(0, 200)}...[truncated]`;
+        }
+        return text;
+    }
+
+    static logChange(message) {
+        const time = new Date().toLocaleTimeString('en-US', { hour12: true });
+        this.commandHistory.push({
+            command: `[Action] ${message}`,
+            output: "success",
+            error: null,
+            time: time
+        });
+        if (this.commandHistory.length > 500) this.commandHistory.shift();
+    }
+
+    static async loadChangeLog() {
+        return this.commandHistory;
+    }
+
+    static async clearChangeLog() {
+        this.commandHistory = [];
+    }
+
     static ksuExec(command) {
         this.lastActivityTime = Date.now();
         if (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') {
@@ -186,7 +252,21 @@ export class Utils {
                 const callbackName = `exec_callback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 window[callbackName] = (errno, stdout, stderr) => {
                     delete window[callbackName];
-                    if (errno !== 0) reject(new Error(stderr || `Error ${errno}`));
+                    const isError = errno !== 0;
+                    const errorMsg = isError ? (stderr || `Error ${errno}`) : null;
+                    const isSpamRead = /^(ls |cat |find |grep |base64 |\[ -f )\b/.test(command) && !command.includes('>>') && !command.includes('for d in');
+
+                    if (!isSpamRead || isError) {
+                        this.commandHistory.push({
+                            command,
+                            output: this.summarizeForHistory(command, stdout, errorMsg),
+                            error: errorMsg,
+                            time: new Date().toLocaleTimeString('en-US', { hour12: true })
+                        });
+                        if (this.commandHistory.length > 500) this.commandHistory.shift();
+                    }
+
+                    if (isError) reject(new Error(errorMsg));
                     else resolve(stdout);
                 };
                 ksu.exec(command, "{}", callbackName);
@@ -210,9 +290,34 @@ export class Utils {
                     let data;
                     try { data = JSON.parse(responseText); }
                     catch (e) { throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`); }
-                    if (data.code !== 0) reject(new Error((data.stdout || "Command failed").replace(/\\n/g, '\n')));
-                    else resolve((data.stdout || "").replace(/\\n/g, '\n'));
+
+                    const stdout = (data.stdout || "").replace(/\\n/g, '\n');
+                    const isError = data.code !== 0;
+                    const errorMsg = isError ? (data.stderr || data.stdout || "Command failed") : null;
+                    const isSpamRead = /^(ls |cat |find |grep |base64 |\[ -f )\b/.test(command) && !command.includes('>>') && !command.includes('for d in');
+
+                    if (!isSpamRead || isError) {
+                        this.commandHistory.push({
+                            command,
+                            output: this.summarizeForHistory(command, stdout, errorMsg),
+                            error: errorMsg,
+                            time: new Date().toLocaleTimeString('en-US', { hour12: true })
+                        });
+                        if (this.commandHistory.length > 500) this.commandHistory.shift();
+                    }
+
+                    if (isError) {
+                        reject(new Error(errorMsg));
+                    } else {
+                        resolve(stdout);
+                    }
                 } catch (error) {
+                    this.commandHistory.push({
+                        command,
+                        output: "",
+                        error: error.message,
+                        time: new Date().toLocaleTimeString('en-US', { hour12: true })
+                    });
                     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('connection lost')) {
                         this.handleServerShutdown();
                     }

@@ -7,6 +7,10 @@ ROOT_TYPE="$method"
 
 set_log_file
 start_run
+
+modify_prop -s "sd" "" "$MODPATH/module.prop"
+modify_prop -s "description" "⏳ Booting... Monitoring stability, pull to refresh for status." "$MODPATH/module.prop"
+
 create_mod_list
 handle_boot_loop
 modify_prop "+" "loops"

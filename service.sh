@@ -314,5 +314,8 @@ rm -f "$MODPATH/.session_state"
 rm -f "$MODPATH/nexus_secure"
 
 log "WebUI cleanup: Stopped processes and removed stale files"
+
+modify_prop -s "rs" "" "$MODPATH/module.prop"
+
 log "######## THE END ##########"
 modify_prop -s "boot" "booted" "$MODPATH/settings.prop"

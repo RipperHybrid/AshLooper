@@ -13,7 +13,6 @@ export class FileManager {
                 .filter(file => file.trim() && /^AshReXcueSession-\d+\.log$/i.test(file.trim()))
                 .sort();
             this.renderFileList();
-            Utils.updateConsole('Log files loaded');
         } catch (error) {
             Utils.updateConsole(`Error loading log files: ${error.message}`, 'error');
             this.app.logFiles = [];

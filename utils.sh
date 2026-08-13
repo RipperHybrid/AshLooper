@@ -7,6 +7,9 @@ ASHLOOPER_DIR="/data/adb/ashlooper"
 TMP_FILE="$ASHLOOPER_DIR/tmp_modules.json"
 MODULE_LIST="$ASHLOOPER_DIR/module.json"
 JQ="$MODPATH/jq/jq"
+SERVICE_D="/data/adb/service.d"
+POSTMOUNT_D="/data/adb/post-mount.d"
+POSTFSDATA_D="/data/adb/post-fs-data.d"
 boot_completed=0
 
 chooseport() {
@@ -155,6 +158,29 @@ modify_prop() {
                 log "Property $value not found in $(basename "$target_file"), skipping increment"
             fi
         fi
+    elif [ "$action" = "sd" ]; then
+        if grep -q "^orig_description=" "$target_file" 2>/dev/null; then
+            [ "$silent" = false ] && log "orig_description already saved in $(basename "$target_file"), skipping"
+        else
+            cur=$(get_prop "description" "$target_file")
+            if [ -n "$cur" ]; then
+                [ -n "$(tail -c1 "$target_file")" ] && printf '\n' >> "$target_file"
+                printf 'orig_description=%s\n' "$cur" >> "$target_file"
+                if [ "$silent" = false ]; then
+                    log "Saved original description in $(basename "$target_file")"
+                fi
+            fi
+        fi
+    elif [ "$action" = "rs" ]; then
+        saved=$(get_prop "orig_description" "$target_file")
+        if [ -n "$saved" ]; then
+            local safe_value=$(echo "$saved" | sed 's/&/\\&/g')
+            sed -i "s~^description=.*~description=$safe_value~" "$target_file" || return 1
+            sed -i '/^orig_description=/d' "$target_file"
+            if [ "$silent" = false ]; then
+                log "Restored original description in $(basename "$target_file")"
+            fi
+        fi
     else
         if grep -q "^$action=" "$target_file"; then
             local safe_value=$(echo "$value" | sed 's/&/\\&/g')
@@ -220,6 +246,7 @@ start_run() {
     local mode=$(get_prop mode)
     local disable=$(get_prop disable)
     local extra_stability=$(get_prop extra_stability)
+    local monitor_scripts=$(get_prop monitor_scripts)
 
     if [ "$install_date" != "none" ] && [ "$install_date" != "unknown" ] && \
        [ "$current_date" \< "$install_date" ]; then
@@ -241,7 +268,7 @@ start_run() {
     log "Module Version: $(get_prop version "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
     log "Module Version Code: $(get_prop versionCode "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"
     log "Mode: $mode | Disable: $disable"
-    log "Extra Stability: $extra_stability"
+    log "Extra Stability: $extra_stability | Monitor Scripts: $monitor_scripts"
 }
 
 log() {
@@ -283,7 +310,112 @@ list_modules() {
             log "$count. $folder_name $status"
         fi
     done
+
+    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
+        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+            dpath="${scandir%%:*}"
+            prefix="${scandir##*:}"
+            [ -d "$dpath" ] || continue
+
+            for f in "$dpath"/*.sh "$dpath"/.*.sh; do
+                [ -f "$f" ] || continue
+                [ ! -x "$f" ] && [ ! -s "$f" ] && continue
+                fname=$(basename "$f")
+                id="${prefix}:${fname}"
+
+                is_whitelisted=0
+                case ",$whitelist," in
+                    *",${id},"* ) is_whitelisted=1 ;;
+                esac
+
+                status="- Active"
+                if [ "$is_whitelisted" -eq 1 ]; then
+                    status="$status - Whitelist"
+                fi
+
+                count=$((count + 1))
+                log "$count. $id $status"
+            done
+        done
+
+        for f in "$ASHLOOPER_DIR"/*.svc.* "$ASHLOOPER_DIR"/*.pmd.* "$ASHLOOPER_DIR"/*.pfd.*; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            fname_ext="${base%.*}"
+            prefix="${fname_ext##*.}"
+            fname="${fname_ext%.*}"
+            id="${prefix}:${fname}"
+
+            is_whitelisted=0
+            case ",$whitelist," in
+                *",${id},"* ) is_whitelisted=1 ;;
+            esac
+
+            status="- Disabled"
+            if [ "$is_whitelisted" -eq 1 ]; then
+                status="$status - Whitelist"
+            fi
+
+            count=$((count + 1))
+            log "$count. $id $status"
+        done
+    fi
+
     log "###############"
+}
+
+disable_script() {
+    id="$1"
+    prefix="${id%%:*}"
+    fname="${id#*:}"
+
+    case "$prefix" in
+        svc) dpath="$SERVICE_D" ;;
+        pmd) dpath="$POSTMOUNT_D" ;;
+        pfd) dpath="$POSTFSDATA_D" ;;
+        *) return 1 ;;
+    esac
+
+    src="$dpath/$fname"
+    [ -f "$src" ] || return 1
+
+    [ ! -x "$src" ] && [ ! -s "$src" ] && return 0
+
+    perm=$(stat -c %a "$src" 2>/dev/null || echo "755")
+    dest="$ASHLOOPER_DIR/${fname}.${prefix}.${perm}"
+
+    mkdir -p "$ASHLOOPER_DIR"
+    mv -f "$src" "$dest"
+
+    touch "$src"
+    chmod 000 "$src"
+
+    log "Disabled script: $src -> $dest (Dummy created)"
+}
+
+restore_script() {
+    id="$1"
+    prefix="${id%%:*}"
+    fname="${id#*:}"
+
+    case "$prefix" in
+        svc) dpath="$SERVICE_D" ;;
+        pmd) dpath="$POSTMOUNT_D" ;;
+        pfd) dpath="$POSTFSDATA_D" ;;
+        *) return 1 ;;
+    esac
+
+    src=$(ls "$ASHLOOPER_DIR/${fname}.${prefix}".* 2>/dev/null | head -n1)
+    [ -z "$src" ] || [ ! -f "$src" ] && return 1
+
+    perm="${src##*.}"
+    dest="$dpath/$fname"
+
+    rm -f "$dest"
+
+    mv -f "$src" "$dest"
+    chmod "$perm" "$dest"
+    log "Restored script: $src -> $dest (perm: $perm)"
 }
 
 lockdown() {
@@ -292,7 +424,9 @@ lockdown() {
     threshold=$(get_prop "threshold")
     whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
 
-    if [ "$LOCKDOWN_TYPE" = "full" ]; then
+    if [ "$LOCKDOWN_TYPE" = "nuke" ]; then
+        log "EXTREME MEASURE: Deleting all non-whitelisted scripts to guarantee boot."
+    elif [ "$LOCKDOWN_TYPE" = "full" ]; then
         log "Full Lockdown: Threshold ($threshold) reached. Disabling ALL modules including AshLooper..."
     else
         log "Threshold ($threshold) reached. Disabling non-whitelisted modules..."
@@ -313,7 +447,7 @@ lockdown() {
                 [ -n "$prop_id" ] && id=$(printf '%s' "$prop_id" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
             fi
 
-            if [ "$LOCKDOWN_TYPE" != "full" ]; then
+            if [ "$LOCKDOWN_TYPE" != "full" ] && [ "$LOCKDOWN_TYPE" != "nuke" ]; then
                 is_whitelisted=0
                 case ",$whitelist," in
                     *",${id},"* | *",${folder_name},"* ) is_whitelisted=1 ;;
@@ -331,7 +465,35 @@ lockdown() {
         fi
     done
 
-    log "Total Disabled: $enabled_modules"
+    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
+        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+            dpath="${scandir%%:*}"
+            prefix="${scandir##*:}"
+            [ -d "$dpath" ] || continue
+
+            for f in "$dpath"/*.sh "$dpath"/.*.sh; do
+                [ -f "$f" ] || continue
+                [ ! -x "$f" ] && [ ! -s "$f" ] && continue
+                fname=$(basename "$f")
+                id="${prefix}:${fname}"
+
+                is_whitelisted=0
+                case ",$whitelist," in
+                    *",${id},"* ) is_whitelisted=1 ;;
+                esac
+
+                if [ "$is_whitelisted" -eq 1 ]; then
+                    log "Skipping whitelisted script: $id"
+                    continue
+                fi
+
+                disable_script "$id"
+                enabled_modules=$((enabled_modules + 1))
+            done
+        done
+    fi
+
+    log "Total Affected: $enabled_modules"
     log "###########################"
     modify_prop "loops" "0"
     modify_prop "disable" "full"
@@ -349,6 +511,7 @@ create_mod_list() {
     rm -f "$TMP_FILE"
     printf '[' > "$TMP_FILE"
     local first=1
+    BB=$(find_busybox)
 
     for module_folder in "$mdir"/*; do
         if [ -d "$module_folder" ]; then
@@ -387,6 +550,50 @@ create_mod_list() {
             first=0
         fi
     done
+
+    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
+        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+            dpath="${scandir%%:*}"
+            prefix="${scandir##*:}"
+            [ -d "$dpath" ] || continue
+
+            for f in "$dpath"/*.sh "$dpath"/.*.sh; do
+                [ -f "$f" ] || continue
+                [ ! -x "$f" ] && [ ! -s "$f" ] && continue
+
+                fname=$(basename "$f")
+                id="${prefix}:${fname}"
+                size=$(du -s "$f" 2>/dev/null | cut -f1)
+                perm=$(stat -c %a "$f" 2>/dev/null || echo "755")
+                hash=$([ -n "$BB" ] && "$BB" sha256sum "$f" 2>/dev/null | cut -d' ' -f1)
+                versionCode="${prefix};${hash:-nohash}"
+                status="enabled"
+
+                [ "$first" -eq 0 ] && printf ',' >> "$TMP_FILE"
+                printf '\n  {"id": "%s", "name": "%s", "version": "%s", "versionCode": "%s", "status": "%s", "size": "%s"}' "$id" "$fname" "$perm" "$versionCode" "$status" "$size" >> "$TMP_FILE"
+                first=0
+            done
+        done
+
+        for f in "$ASHLOOPER_DIR"/*.svc.* "$ASHLOOPER_DIR"/*.pmd.* "$ASHLOOPER_DIR"/*.pfd.*; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            perm="${base##*.}"
+            fname_ext="${base%.*}"
+            prefix="${fname_ext##*.}"
+            fname="${fname_ext%.*}"
+
+            id="${prefix}:${fname}"
+            size=$(du -s "$f" 2>/dev/null | cut -f1)
+            hash=$([ -n "$BB" ] && "$BB" sha256sum "$f" 2>/dev/null | cut -d' ' -f1)
+            versionCode="${prefix};${hash:-nohash}"
+            status="disabled"
+
+            [ "$first" -eq 0 ] && printf ',' >> "$TMP_FILE"
+            printf '\n  {"id": "%s", "name": "%s", "version": "%s", "versionCode": "%s", "status": "%s", "size": "%s"}' "$id" "$fname" "$perm" "$versionCode" "$status" "$size" >> "$TMP_FILE"
+            first=0
+        done
+    fi
 
     printf '\n]\n' >> "$TMP_FILE"
 }
@@ -446,12 +653,19 @@ disable_new_mods() {
     log "Starting disable process..."
 
     for id_clean in $target_ids; do
-        if [ -d "$mdir/$id_clean" ]; then
-            touch "$mdir/$id_clean/disable"
-            log "Module disabled: $mdir/$id_clean"
-        else
-            log "Module folder not found: $mdir/$id_clean"
-        fi
+        case "$id_clean" in
+            svc:*|pmd:*|pfd:*)
+                disable_script "$id_clean"
+                ;;
+            *)
+                if [ -d "$mdir/$id_clean" ]; then
+                    touch "$mdir/$id_clean/disable"
+                    log "Module disabled: $mdir/$id_clean"
+                else
+                    log "Module folder not found: $mdir/$id_clean"
+                fi
+                ;;
+        esac
     done
 
     modify_prop "loops" "0"
@@ -485,8 +699,8 @@ handle_boot_loop() {
             "full")
                 log "Well, you're fu*ked ¯\_(ツ)_/¯"
                 log "Full protection enabled but bootloop still occurred"
-                log "Disabling all modules including AshLooper."
-                lockdown "full"
+                log "NUKING all scripts and disabling all modules including AshLooper."
+                lockdown "nuke"
                 ;;
             *)
                 log "Invalid protection mode - taking no action"

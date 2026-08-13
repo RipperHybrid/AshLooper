@@ -25,7 +25,7 @@
   <br>
 </div>
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Orbitron&weight=500&pause=1000&color=41F791&center=true&vCenter=true&width=935&height=70&lines=Advanced+Bootloop+Protection;Interactive+WebUI+Dashboard;Smart+Differential+Analysis;Magisk,+KernelSU,+APatch+%26+Forks)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Orbitron&weight=500&pause=1000&color=41F791&center=true&vCenter=true&width=935&height=70&lines=Advanced+Bootloop+Protection;Boot+Script+%2B+Module+Guard;Interactive+WebUI+Dashboard;Smart+Differential+Analysis;Magisk,+KernelSU,+APatch+%26+Forks)](https://git.io/typing-svg)
 
 ---
 
@@ -33,7 +33,7 @@
 
 **AshReXcue** (formerly AshLooper) is a sophisticated, open-source boot protection module designed for **Magisk**, **KernelSU**, **APatch**, and their various **Forks**.
 
-Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules. It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors—offering a completely local experience with no cumbersome login processes or external dependencies.
+Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules and, as of v9.9, early/late boot scripts too (`service.d`, `post-mount.d`, `post-fs-data.d`). It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors offering a completely local experience with no cumbersome login processes or external dependencies.
 
 ### 📚 [Read The Full Feature Documentation](.github/resources/feature.md)
 
@@ -43,11 +43,12 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 | Category | Description |
 | :--- | :--- |
-| 🛡️ **Smart Detection** | Differential tracking detects exactly what changed since the last successful boot to isolate bad modules, backed by aggressive `com.android.systemui` crash-loop monitoring (3-strike threshold). |
-| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.6) featuring a sleek glassmorphism aesthetic, interactive tracker, and native base64 banner rendering. |
+| 🛡️ **Smart Detection** | Differential tracking (hash + size + status) detects exactly what changed since the last successful boot to isolate bad modules **and** boot scripts, backed by aggressive `com.android.systemui` crash-loop monitoring (3-strike threshold). |
+| 📜 **Boot Script Guard** | Optionally tracks and protects `service.d`, `post-mount.d`, and `post-fs-data.d` scripts the same way it protects modules isolating offenders into a recovery vault instead of deleting them outright. |
+| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.6) featuring a claymorphic/neumorphic dark aesthetic, a unified **Items** control center, a global unsaved-changes tracker, and built-in diagnostics (Activity Log + JSON Viewer). |
 | 🔒 **Secure Environment** | Built-in security measures including strict `/proc/net/tcp` port collision checks, decoupled static `monitor.sh` background tracking, and hash-based local authentication. |
-| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, and intelligent crash-reboot cycling with active state-locks to prevent race conditions. |
-| 📝 **Module Access Control** | A dedicated Whitelist Manager with swipe-gesture UI to protect essential system modules from automated lockdowns. |
+| ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, toggleable extra daemon checks, and intelligent crash-reboot cycling with active state-locks to prevent race conditions. |
+| 📝 **Access Control** | A unified Whitelist Manager covering both modules and boot scripts, plus a dedicated Items tab to pause, restore, or permanently remove any tracked item. |
 
 ---
 
@@ -55,19 +56,19 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 Install via your preferred root manager (**Magisk**, **KernelSU**, or **APatch**).
 
-The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen to configure your baseline protection settings.
+The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen to configure your baseline protection settings, including whether to enable **Boot Script Monitoring**.
 
 > **General Controls (VSKL):**
 > * **Vol+ / Screen Touch** = Select / Next Option
 > * **Vol-** = Confirm Selection
 
-*Note: All settings configured during installation can be modified dynamically at any time via the WebUI or the local command menu.*
+*Note: All settings configured during installation can be modified dynamically at any time via the WebUI or the local Action Menu.*
 
 ---
 
 ## 🖥️ Accessing the Dashboard & Action Menu
 
-AshReXcue features an interactive CLI-based **Action Menu** powered by VSKL (Volume & Screen Key Listener). This serves as the central hub for managing the module. From this 4-option menu, you can securely launch the WebUI on localhost, add/remove modules from your Whitelist, or safely exit.
+AshReXcue features an interactive CLI-based **Action Menu** powered by VSKL (Volume & Screen Key Listener). This serves as the central hub for managing the module. From this 5-option menu, you can securely launch the WebUI on localhost, add/remove items from your Whitelist, **restore previously disabled modules/scripts**, or safely exit.
 
 You can access this menu dynamically based on your root manager:
 
@@ -81,10 +82,16 @@ Tap the **"Action"** button directly within the Magisk module menu. This seamles
 
 ## 📁 Important Notices
 
+<details>
+<summary><strong>Infrastructure Redundancy details</strong></summary>
+<br>
+
 > [!TIP]
 > **Mirrors & Updates**
 > * **Primary:** [GitHub Releases](https://github.com/RipperHybrid/AshLooper/releases)
 > * **Mirror:** [GitLab Repository](https://gitlab.com/RipperHybrid/AshLooper)
+
+</details>
 
 > [!WARNING]
 > **Compatibility**
@@ -100,15 +107,3 @@ Tap the **"Action"** button directly within the Magisk module menu. This seamles
 ## 👤 Author
 
 - **AshBorn** - [@RipperHybrid](https://github.com/RipperHybrid)
-
----
-
-<div align="center">
-
-**🛡️ AshReXcue**<br>
-*Your friendly neighborhood root savior.*
-
-> _Built by **AshBorn**_<br>
-> *I put the ‘pro’ in procrastinate 🙂*
-
-</div>
