@@ -134,8 +134,8 @@ jobs:
         continue-on-error: true
         if: always() && steps.metadata.outputs.skip != 'true'
         env:
-          BOT_TOKEN: ${{ secrets.BOTAPI }}
-          CHAT_ID: ${{ secrets.CHANNEL }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.MAIN_BUILDS }}
           ZIP_NAME: ${{ steps.metadata.outputs.filename }}
           REPO_SLUG: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
