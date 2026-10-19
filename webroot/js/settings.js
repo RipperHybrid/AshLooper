@@ -7,7 +7,8 @@ export class SettingsManager {
         this.knownKeys = [
             'mode', 'loops', 'disable', 'log',
             'timeout', 'threshold', 'stability_time', 'extra_stability', 'monitor_scripts',
-            'install_date', 'version', 'whitelist', 'name', 'versionCode', 'author', 'id', 'boot'
+            'install_date', 'version', 'whitelist', 'name', 'versionCode', 'author', 'id', 'boot',
+            'boot_id', 'kernel_uptime'
         ];
         this.pendingChanges = {};
     }
@@ -77,6 +78,7 @@ export class SettingsManager {
     async loadSettingsTab() {
         this.updateUI();
         this.bindEvents();
+        this.bindBootIdEvents();
     }
 
     getOriginal(key) {
@@ -116,8 +118,13 @@ export class SettingsManager {
         const eInstallDate = document.getElementById('v-install-date');
         const eLog = document.getElementById('v-log');
         const eBootState = document.getElementById('v-boot-state');
+        const eBootId = document.getElementById('v-boot-id');
         if (eInstallDate) eInstallDate.textContent = info.install_date || '—';
         if (eLog) eLog.textContent = info.log || '—';
+        if (eBootId) {
+            const bid = (info.boot_id && info.boot_id !== 'none') ? info.boot_id : '—';
+            eBootId.textContent = bid === '—' ? bid : bid.slice(0, 8);
+        }
         if (eBootState) {
             const state = info.boot || 'none';
             eBootState.textContent = state.charAt(0).toUpperCase() + state.slice(1);
@@ -165,6 +172,72 @@ export class SettingsManager {
         if (eVersionCode) eVersionCode.textContent = info.versionCode || '—';
         if (eAuthor) eAuthor.textContent = info.author || 'AshBorn';
         if (eModuleId) eModuleId.textContent = info.id || 'AshLooper';
+    }
+
+    async openBootIdPopup() {
+        const popup = document.getElementById('bootIdPopup');
+        if (!popup) return;
+
+        let recorded = (this.app.moduleInfo.boot_id && this.app.moduleInfo.boot_id !== 'none')
+            ? this.app.moduleInfo.boot_id
+            : '';
+        try {
+            const rawId = await Utils.ksuExec(`grep '^boot_id=' "${Config.settingsPropPath}" 2>/dev/null | cut -d'=' -f2-`);
+            const clean = rawId.trim();
+            if (clean && clean !== 'none') {
+                recorded = clean;
+                this.app.moduleInfo.boot_id = clean;
+            }
+        } catch (error) {}
+
+        let current = '';
+        try {
+            current = await Utils.ksuExec('cat /proc/sys/kernel/random/boot_id 2>/dev/null');
+            current = current.trim();
+            if (!current) current = '';
+        } catch (error) {}
+
+        const recordedEl = document.getElementById('bootIdRecorded');
+        const currentEl = document.getElementById('bootIdCurrent');
+        if (recordedEl) recordedEl.textContent = recorded || '—';
+        if (currentEl) currentEl.textContent = current || '—';
+
+        document.body.classList.add('popup-open');
+        popup.classList.add('active');
+    }
+
+    closeBootIdPopup() {
+        const popup = document.getElementById('bootIdPopup');
+        if (popup) popup.classList.remove('active');
+        document.body.classList.remove('popup-open');
+    }
+
+    bindBootIdEvents() {
+        const row = document.getElementById('bootIdRow');
+        const closeBtn = document.getElementById('closeBootIdPopup');
+        const copyBtn = document.getElementById('bootIdCopyBtn');
+        const popup = document.getElementById('bootIdPopup');
+
+        if (row) row.addEventListener('click', () => this.openBootIdPopup());
+        if (closeBtn) closeBtn.addEventListener('click', () => this.closeBootIdPopup());
+        if (popup) {
+            popup.addEventListener('click', (e) => {
+                if (e.target === popup) this.closeBootIdPopup();
+            });
+        }
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                const bid = (this.app.moduleInfo.boot_id && this.app.moduleInfo.boot_id !== 'none')
+                    ? this.app.moduleInfo.boot_id
+                    : '';
+                if (!bid) {
+                    Utils.showToast('Nothing to copy', 'warning');
+                    return;
+                }
+                await Utils.copyToClipboard(bid);
+                Utils.showToast('Boot ID copied', 'success');
+            });
+        }
     }
 
     refreshButtonStates(t, s, th) {
@@ -443,7 +516,7 @@ export class SettingsManager {
         const threshold = info.threshold || '1';
         const stability = info.extra_stability === 'true' ? 'On' : 'Off';
         const scripts = info.monitor_scripts !== 'false' ? 'On' : 'Off';
-        const newDesc = `🛡️ [Mode ${smode} | Threshold: ${threshold} boots | Stability Check: ${stability} | Boot Scripts (.d): ${scripts}] Bootloop Saver Protection For Magisk-KernelSU/Next.`;
+        const newDesc = `🔰 [Mode ${smode} | Threshold: ${threshold} boots | Stability Check: ${stability} | Scripts (.d): ${scripts}] Your safety net for bad modules. Catches boot loops, disables the culprits.`;
         const script = `if grep -q "^description=" "${Config.modulePropPath}"; then sed -i 's~^description=.*~description=${newDesc}~' "${Config.modulePropPath}"; else echo 'description=${newDesc}' >> "${Config.modulePropPath}"; fi`;
         try {
             await Utils.ksuExec(script);

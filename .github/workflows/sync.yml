@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       deployment_type:
-        description: 'Deployment Type'
+        description: 'normal = skip if tag exists | overwrite = recreate'
         required: true
         default: 'normal'
         type: choice
@@ -20,11 +20,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Preflight GitLab Check
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          set -e
+          if [ -z "$GITLAB_TOKEN" ]; then
+            echo "::error::GITLAB_TOKEN secret is empty or not set"
+            exit 1
+          fi
+          if ! git ls-remote "https://oauth2:${GITLAB_TOKEN}@gitlab.com/RipperHybrid/AshLooper.git" > /dev/null 2>&1; then
+            echo "::error::Cannot reach gitlab.com/RipperHybrid/AshLooper.git with the provided GITLAB_TOKEN"
+            exit 1
+          fi
+          echo "GitLab preflight OK"
+
       - name: Push to GitLab
         env:
           TARGET_REPO: "gitlab.com/RipperHybrid/AshLooper.git"
         run: |
-          git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@${{ env.TARGET_REPO }}
+          git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@${{ env.TARGET_REPO }} || true
           git push gitlab --all --force
           git push gitlab --tags --force
 
@@ -58,10 +73,11 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "filename=AshReXcue_Bootloop_Protector_${VERSION}_${VERSION_CODE}.zip" >> $GITHUB_OUTPUT
 
-          if [ -f "changelog.md" ]; then
-            echo "body_file=changelog.md" >> $GITHUB_OUTPUT
+          if [ -f "changelog.md" ] && grep -q '[^[:space:]]' changelog.md; then
+            cp changelog.md release_body.md
+            echo "body_file=release_body.md" >> $GITHUB_OUTPUT
           else
-            echo "$COMMIT_MSG" > release_msg.txt
+            echo "commit: $COMMIT_MSG" > release_msg.txt
             echo "body_file=release_msg.txt" >> $GITHUB_OUTPUT
           fi
 
@@ -130,6 +146,44 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Force Update GitHub Release Title and Body
+        if: steps.metadata.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          BODY_FILE: ${{ steps.metadata.outputs.body_file }}
+        run: |
+          gh release edit "$TAG" \
+            --title "AshLooper Version ${VERSION} Release" \
+            --notes-file "$BODY_FILE"
+
+      - name: Create GitLab Release
+        if: steps.metadata.outputs.skip != 'true'
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_HOST: gitlab.com
+          REPO: "RipperHybrid/AshLooper"
+          TAG: ${{ steps.metadata.outputs.tag }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          ZIP_NAME: ${{ steps.metadata.outputs.filename }}
+          BODY_FILE: ${{ steps.metadata.outputs.body_file }}
+        run: |
+          curl -sSL "https://gitlab.com/gitlab-org/cli/-/releases/v1.58.0/downloads/glab_1.58.0_linux_amd64.tar.gz" \
+            | tar -xz -C /tmp
+          sudo mv /tmp/bin/glab /usr/local/bin/glab
+
+          if glab release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
+            echo "Existing GitLab release for $TAG found, deleting so it can be recreated"
+            glab release delete "$TAG" --repo "$REPO" --yes || true
+          fi
+
+          glab release create "$TAG" \
+            --repo "$REPO" \
+            --name "AshLooper Version ${VERSION} Release" \
+            --notes-file "$BODY_FILE" \
+            "$ZIP_NAME"
+
       - name: Send to Telegram
         continue-on-error: true
         if: always() && steps.metadata.outputs.skip != 'true'
@@ -142,6 +196,7 @@ jobs:
           COMMIT_HASH: ${{ github.sha }}
           SERVER_URL: ${{ github.server_url }}
           BRANCH_NAME: ${{ github.ref_name }}
+          GITLAB_REPO: "RipperHybrid/AshLooper"
         run: |
           [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
           [ ! -f "$ZIP_NAME" ] && exit 1
@@ -162,12 +217,13 @@ jobs:
           BTN_TEXT="Manual Run ⚡️"
           BTN_URL="${SERVER_URL}/${REPO_SLUG}/actions/runs/${RUN_ID}"
 
-          REPO_URL="${SERVER_URL}/${REPO_SLUG}"
+          GITHUB_URL="${SERVER_URL}/${REPO_SLUG}"
           CHANGELOG_URL="${SERVER_URL}/${REPO_SLUG}/blob/${BRANCH_NAME}/changelog.md"
+          GITLAB_URL="https://gitlab.com/${GITLAB_REPO}"
 
           KEYBOARD_JSON=$(printf \
-            '{"inline_keyboard":[[{"text":"%s","url":"%s"},{"text":"Changelog 📝","url":"%s"}],[{"text":"Repo 🏠","url":"%s"}]]}' \
-            "$BTN_TEXT" "$BTN_URL" "$CHANGELOG_URL" "$REPO_URL")
+            '{"inline_keyboard":[[{"text":"%s","url":"%s"},{"text":"Changelog 📝","url":"%s"}],[{"text":"GitHub 🐙","url":"%s"},{"text":"GitLab 🦊","url":"%s"}]]}' \
+            "$BTN_TEXT" "$BTN_URL" "$CHANGELOG_URL" "$GITHUB_URL" "$GITLAB_URL")
 
           curl -s \
                -F "chat_id=$CHAT_ID" \

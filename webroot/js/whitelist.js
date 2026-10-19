@@ -145,7 +145,7 @@ export class WhitelistManager {
             }
 
             this.modules = collected;
-            if (isFirstTime) Utils.logChange('Loaded whitelist modules for the first time');
+            if (isFirstTime && !this.app.firstLoadQuiet) Utils.logChange('Loaded whitelist modules for the first time');
         } catch (error) {
             Utils.showToast('Failed to load modules', 'error');
         } finally {

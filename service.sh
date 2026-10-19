@@ -1,7 +1,7 @@
 #!/system/bin/sh
 
 MODPATH="${0%/*}"
-. "$MODPATH"/utils.sh 2>>/cache/looper/looperbug.log || exit 1
+. "$MODPATH"/utils.sh || exit 1
 
 loops=$(get_prop "loops")
 real_loops=$loops
@@ -19,6 +19,7 @@ LOCKDIR="/dev/ashrexcue_lock"
 
 set_log_file
 
+# Make sure only one instance of the service is running
 if mkdir "$LOCKDIR" 2>/dev/null; then
     log "Lock acquired: Main instance starting (PID=$$)"
 else
@@ -311,11 +312,13 @@ fi
 
 rm -f "$MODPATH"/monitor_*.sh
 rm -f "$MODPATH/.session_state"
+rm -f "$MODPATH/.session_warn"
 rm -f "$MODPATH/nexus_secure"
 
 log "WebUI cleanup: Stopped processes and removed stale files"
 
 modify_prop -s "rs" "" "$MODPATH/module.prop"
 
-log "######## THE END ##########"
 modify_prop -s "boot" "booted" "$MODPATH/settings.prop"
+save_boot_marker
+log "######## THE END ##########"

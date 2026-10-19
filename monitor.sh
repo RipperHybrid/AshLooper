@@ -2,6 +2,8 @@
 MODPATH="${0%/*}"
 STATE_FILE="$MODPATH/.session_state"
 TIMEOUT=120
+BROWSER_CHECK_EVERY=5
+NO_ACTIVITY_GRACE=30
 
 find_busybox() {
     for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
@@ -26,7 +28,7 @@ cleanup_and_exit() {
     BB=$(find_busybox)
     [ -n "$BB" ] && "$BB" pkill -f "httpd -p 127.0.0.1:$PORT"
     send_notification "WebUI Stopped" "$1"
-    rm -rf "$STATE_FILE" "$MODPATH/nexus_secure"
+    rm -rf "$STATE_FILE" "$MODPATH/.session_warn" "$MODPATH/nexus_secure"
     exit 0
 }
 
@@ -34,16 +36,17 @@ BB=$(find_busybox)
 [ -z "$BB" ] && cleanup_and_exit "Error: Busybox not found"
 
 while [ -f "$STATE_FILE" ]; do
-    sleep 10
-    read PORT DEADLINE LAST_ACTIVITY < "$STATE_FILE"
+    sleep "$BROWSER_CHECK_EVERY"
+    read PORT DEADLINE LAST_ACTIVITY BROWSER < "$STATE_FILE"
     PORT=$(echo "$PORT" | tr -d '\r' | tr -d ' ')
     DEADLINE=$(echo "$DEADLINE" | tr -d '\r' | tr -d ' ')
     LAST_ACTIVITY=$(echo "$LAST_ACTIVITY" | tr -d '\r' | tr -d ' ')
+    BROWSER=$(echo "$BROWSER" | tr -d '\r' | tr -d ' ')
 
     [ -z "$PORT" ] || [ -z "$DEADLINE" ] || [ -z "$LAST_ACTIVITY" ] && continue
 
     if ! "$BB" ps | grep -v grep | grep -q "httpd -p 127.0.0.1:$PORT"; then
-         break
+        break
     fi
 
     CURRENT=$("$BB" date +%s)
@@ -52,7 +55,15 @@ while [ -f "$STATE_FILE" ]; do
         cleanup_and_exit "Max session time reached (5min)"
     fi
 
+    if [ "$LAST_ACTIVITY" = "0" ]; then
+        cleanup_and_exit "WebUI page closed"
+    fi
+
     IDLE=$((CURRENT - LAST_ACTIVITY))
+    if [ "$IDLE" -ge "$NO_ACTIVITY_GRACE" ]; then
+        cleanup_and_exit "WebUI inactive"
+    fi
+
     if [ "$IDLE" -ge "$TIMEOUT" ]; then
         cleanup_and_exit "Idle timeout reached"
     fi

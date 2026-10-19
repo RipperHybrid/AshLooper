@@ -53,9 +53,69 @@ class AshReXcueWebUI {
         this.fileManager.loadLogFiles();
         await this.settingsManager.loadModuleData();
 
+        if (!document.getElementById('moduleInfoPopup')) {
+            const headerBtn = document.getElementById('appHeaderBtn');
+            if (headerBtn) {
+                const popup = document.createElement('div');
+                popup.id = 'moduleInfoPopup';
+                popup.className = 'popup-overlay';
+                popup.innerHTML = `<div class="popup" style="max-width: 400px;">
+                    <div class="popup-header">
+                        <h3>Module Info</h3>
+                        <button type="button" class="close-popup" id="closeModuleInfoPopup">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    <div class="popup-content">
+                        <div class="s-row cursor-default">
+                            <div class="s-row-body"><div class="s-row-label">Name</div></div>
+                            <span class="s-row-value ok" id="v-name">—</span>
+                        </div>
+                        <div class="s-row cursor-default">
+                            <div class="s-row-body"><div class="s-row-label">Version</div></div>
+                            <span class="s-row-value ok" id="v-version">—</span>
+                        </div>
+                        <div class="s-row cursor-default">
+                            <div class="s-row-body"><div class="s-row-label">Version Code</div></div>
+                            <span class="s-row-value ok" id="v-version-code">—</span>
+                        </div>
+                        <div class="s-row cursor-default">
+                            <div class="s-row-body"><div class="s-row-label">Author</div></div>
+                            <span class="s-row-value ok" id="v-author">—</span>
+                        </div>
+                        <div class="s-row cursor-default border-none">
+                            <div class="s-row-body"><div class="s-row-label">Module ID</div></div>
+                            <span class="s-row-value ok" id="v-module-id">—</span>
+                        </div>
+                    </div>
+                </div>`;
+                document.body.appendChild(popup);
+            }
+        }
+        if (!document.getElementById('jsonViewerPopup')) {
+            const popup = document.createElement('div');
+            popup.id = 'jsonViewerPopup';
+            popup.className = 'popup-overlay centered';
+            popup.innerHTML = `<div class="popup fixed-height" style="max-width: 480px;">
+                <div class="popup-header">
+                    <h3>Module JSON</h3>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button type="button" id="jsonCopyBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Copy</button>
+                        <button type="button" class="close-popup" id="closeJsonViewer">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="popup-content">
+                    <pre class="json-code" id="jsonViewerContent">Loading...</pre>
+                </div>
+            </div>`;
+            document.body.appendChild(popup);
+        }
+
         const env = (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') ? 'KSU WebUI' : 'Localhost';
 
-        Utils.updateConsole('AshReXcue WebUI V2.6 initialized');
+        Utils.updateConsole('AshReXcue WebUI V2.7 initialized');
         Utils.updateConsole(`Connection: ${env}`);
         Utils.updateConsole('Monitoring For Loops...');
     }
@@ -76,6 +136,36 @@ class AshReXcueWebUI {
                 if (this.activeTab !== tabId) this.switchTab(tabId);
             });
         });
+    }
+
+    async runInitialScan() {
+        try {
+            await this.settingsManager.loadModuleData();
+            await this.refreshBootState();
+            await this.whitelistManager.loadModules(false);
+            await this.itemsManager.loadItems(false);
+        } catch (error) {
+            Utils.updateConsole('Initial scan failed', 'error');
+        }
+    }
+
+    async refreshAll() {
+        try {
+            await this.settingsManager.loadModuleData();
+            await this.refreshBootState();
+            if (this.whitelistManager) {
+                await this.whitelistManager.loadModules(false);
+                this.whitelistManager.updateUI();
+            }
+            if (this.itemsManager) {
+                await this.itemsManager.loadItems(false);
+                this.itemsManager.updateUI();
+            }
+            this.fileManager.loadLogFiles();
+            Utils.showToast('Refreshed', 'success');
+        } catch (error) {
+            Utils.updateConsole('Refresh failed', 'error');
+        }
     }
 
     async refreshBootState() {
@@ -153,20 +243,13 @@ class AshReXcueWebUI {
 
         const settingsCount = sm.pendingChanges ? Object.keys(sm.pendingChanges).length : 0;
         const whitelistCount = wm.pendingChanges ? wm.pendingChanges.size : 0;
-        const itemsCount = im.pendingChanges ? im.pendingChanges.size : 0;
 
-        const total = settingsCount + whitelistCount + itemsCount;
+        const total = settingsCount + whitelistCount;
 
         let mode = 'default';
         let hasAdd = false;
         let hasRemove = false;
 
-        if (im.pendingChanges) {
-            for (let val of im.pendingChanges.values()) {
-                if (val) hasAdd = true;
-                else hasRemove = true;
-            }
-        }
         if (wm.pendingChanges) {
             for (let val of wm.pendingChanges.values()) {
                 if (val) hasAdd = true;
@@ -190,7 +273,6 @@ class AshReXcueWebUI {
 
                     if (settingsCount > 0) await sm._save(true);
                     if (whitelistCount > 0) await wm.applyChanges(true);
-                    if (itemsCount > 0) await im.applyChanges(true);
 
                     this.pill.setSaving(false);
                     this.pill.hide();
@@ -200,7 +282,6 @@ class AshReXcueWebUI {
                 onDiscard: () => {
                     if (settingsCount > 0) sm._discard(true);
                     if (whitelistCount > 0) wm._discard(true);
-                    if (itemsCount > 0) im._discard(true);
 
                     this.pill.hide();
                     Utils.showToast('All changes discarded', 'info');
@@ -290,7 +371,7 @@ class AshReXcueWebUI {
         if (appHeaderBtn) {
             appHeaderBtn.style.cursor = 'pointer';
             appHeaderBtn.addEventListener('click', (e) => {
-                if (e.target.closest('#globalHelpBtn') || e.target.closest('#jsonViewerBtn')) return;
+                if (e.target.closest('#globalHelpBtn') || e.target.closest('#jsonViewerBtn') || e.target.closest('#headerRefreshBtn')) return;
                 this.openModuleInfoPopup();
             });
         }
@@ -348,6 +429,10 @@ class AshReXcueWebUI {
                 this.openJsonViewer();
             });
         }
+        const headerRefreshBtn = document.getElementById('headerRefreshBtn');
+        if (headerRefreshBtn) {
+            headerRefreshBtn.addEventListener('click', () => this.refreshAll());
+        }
         if (closeJsonViewer) {
             closeJsonViewer.addEventListener('click', () => {
                 if (jsonViewerPopup) jsonViewerPopup.classList.remove('active');
@@ -372,11 +457,15 @@ class AshReXcueWebUI {
             });
         }
 
+        this.firstLoadQuiet = true;
+        this.runInitialScan();
+        this.firstLoadQuiet = false;
+
         const activityLogBtn = document.getElementById('activityLogBtn');
         const activityLogPopup = document.getElementById('activityLogPopup');
         const closeActivityLog = document.getElementById('closeActivityLog');
-        const activityCopyBtn = document.getElementById('activityCopyBtn');
         const activityClearBtn = document.getElementById('activityClearBtn');
+        const activitySaveBtn = document.getElementById('activitySaveBtn');
 
         if (activityLogBtn) activityLogBtn.addEventListener('click', () => this.openActivityLog());
         if (closeActivityLog) closeActivityLog.addEventListener('click', () => this.closeActivityLogPopup());
@@ -385,8 +474,8 @@ class AshReXcueWebUI {
                 if (e.target === activityLogPopup) this.closeActivityLogPopup();
             });
         }
-        if (activityCopyBtn) activityCopyBtn.addEventListener('click', () => this.copyActivityLog());
         if (activityClearBtn) activityClearBtn.addEventListener('click', () => this.clearActivityLog());
+        if (activitySaveBtn) activitySaveBtn.addEventListener('click', () => this.saveActivityLog());
 
         this.setupTerminalControls();
 
@@ -463,13 +552,83 @@ class AshReXcueWebUI {
             content.innerHTML = `<div class="debug-empty">No commands executed yet.</div>`;
             return;
         }
-        content.innerHTML = history.slice().reverse().map((entry, idx) => `
+        content.innerHTML = history.slice().reverse().map((entry, idx) => {
+            const block = [
+                `#${history.length - idx}  ${entry.time}`,
+                `CMD: ${entry.command}`,
+                entry.error ? `ERR: ${entry.error}` : `OUT: ${entry.output || '(empty)'}`
+            ].join('\n');
+            const escapedBlock = this.escapeHtml(block);
+            return `
             <div class="debug-entry">
-                <div class="debug-entry-head"><span>#${history.length - idx}</span><span>${this.escapeHtml(entry.time)}</span></div>
+                <div class="debug-entry-head">
+                    <span>#${history.length - idx}</span>
+                    <span>${this.escapeHtml(entry.time)}</span>
+                    ${AshLooperIcons.getEntryCopyButtonHtml(history.length - idx)}
+                </div>
                 <div class="debug-cmd">${this.escapeHtml(entry.command)}</div>
                 <div class="${entry.error ? 'debug-err' : 'debug-out'}">${this.escapeHtml(entry.error || entry.output || '(empty)')}</div>
             </div>
-        `).join('');
+            `;
+        }).join('');
+        content.querySelectorAll('.debug-entry-copy').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.copyId, 10);
+                this.copyEntryBlock(id);
+            });
+        });
+    }
+
+    copyEntryBlock(id) {
+        const idx = Utils.commandHistory.length - 1 - id;
+        if (idx < 0 || idx >= Utils.commandHistory.length) {
+            Utils.showToast('Entry not found', 'warning');
+            return;
+        }
+        const entry = Utils.commandHistory[idx];
+        const block = [
+            `#${id}  ${entry.time}`,
+            `CMD: ${entry.command}`,
+            entry.error ? `ERR: ${entry.error}` : `OUT: ${entry.output || '(empty)'}`
+        ].join('\n');
+        Utils.copyToClipboard(block);
+        Utils.showToast(`Entry #${id} copied`, 'success');
+    }
+
+    saveActivityLog() {
+        if (!Utils.commandHistory.length) {
+            Utils.showToast('Nothing to save', 'warning');
+            return;
+        }
+        const lines = [
+            `AshReXcue Activity Log`,
+            `Exported: ${new Date().toISOString()}`,
+            `Entries: ${Utils.commandHistory.length}`,
+            ''
+        ];
+        Utils.commandHistory.forEach((entry, idx) => {
+            lines.push(`#${idx + 1}  ${entry.time}`);
+            lines.push(`CMD: ${entry.command}`);
+            lines.push(entry.error ? `ERR: ${entry.error}` : `OUT: ${entry.output || '(empty)'}`);
+            lines.push('');
+        });
+        const text = lines.join('\n');
+        const destFilename = `AshReXcue-ActivityLog-${Date.now()}.txt`;
+        const destPath = `/storage/emulated/0/Download/${destFilename}`;
+        const tempPath = `/data/adb/ashlooper/${destFilename}`;
+
+        Utils.updateConsole(`Saving activity log to ${destPath}`, 'info');
+        Utils.ksuExec(`printf '%s' "${text.replace(/"/g, '\\"')}" > "${tempPath}"`)
+            .then(() => Utils.ksuExec(`cp "${tempPath}" "${destPath}"`))
+            .then(() => Utils.ksuExec(`rm "${tempPath}"`))
+            .then(() => {
+                Utils.updateConsole(`Saved to ${destPath}`, 'success');
+                Utils.showToast('Activity log saved', 'success');
+            })
+            .catch(err => {
+                Utils.updateConsole(`Save failed: ${err.message}`, 'error');
+                Utils.showToast(`Save failed: ${err.message}`, 'error');
+            });
     }
 
     copyActivityLog() {
@@ -763,7 +922,7 @@ class AshReXcueWebUI {
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.classList.add('clearing');
         setTimeout(() => {
-            terminalOutput.innerHTML = '<div class="empty-state"><div style="width: 40px; height: 40px; opacity: 0.5;"><i data-icon="fabLogs"></i></div><h3>AshReXcue V2.6</h3><p>Cleared</p></div>';
+            terminalOutput.innerHTML = '<div class="empty-state"><div style="width: 40px; height: 40px; opacity: 0.5;"><i data-icon="fabLogs"></i></div><h3>AshReXcue V2.7</h3><p>Cleared</p></div>';
             terminalOutput.classList.remove('clearing');
             this.clearSearch();
             this.originalLines = [];

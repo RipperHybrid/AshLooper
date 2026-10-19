@@ -21,8 +21,13 @@ INCOMING_TOKEN=$(echo "$HTTP_X_ASH_TOKEN" | tr -d '[:space:]')
 
 # --- Heartbeat ---
 if [ -f "$MOD_DIR/.session_state" ]; then
-    read PORT DEADLINE LAST_ACTIVITY < "$MOD_DIR/.session_state"
-    echo "$PORT $DEADLINE $(date +%s)" > "$MOD_DIR/.session_state"
+    read PORT DEADLINE LAST_ACTIVITY BROWSER < "$MOD_DIR/.session_state"
+    if [ -z "$BROWSER" ]; then BROWSER="none"; fi
+    if [ "$HTTP_X_ASH_ACTION" = "unload" ]; then
+        echo "$PORT $DEADLINE 0 $BROWSER" > "$MOD_DIR/.session_state"
+    else
+        echo "$PORT $DEADLINE $(date +%s) $BROWSER" > "$MOD_DIR/.session_state"
+    fi
 fi
 
 # --- Execution Logic ---
@@ -36,7 +41,7 @@ echo "Content-Type: application/json"
 echo "Cache-Control: no-store"
 echo ""
 
-JQ="$MOD_DIR/jq/jq"
+JQ="$MOD_DIR/bin/jq"
 if [ -x "$JQ" ]; then
     printf '%s' "$OUTPUT" | "$JQ" -Rs --argjson code "0" '{code: $code, stdout: .}'
 else

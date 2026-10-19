@@ -11,7 +11,6 @@
 </head>
 <body class="theme-logs">
     <div id="toast-container"></div>
-    <div id="modal-container"></div>
     <div id="app">
         <main class="app-content">
             <div id="page-content" class="page-content">
@@ -23,10 +22,13 @@
                         <span class="header-name">AshReXcue</span>
                         <div class="header-status ok" id="island-status">
                             <span class="live-dot"></span>
-                            <span id="island-status-text">V2.6</span>
+                            <span id="island-status-text">V2.7</span>
                         </div>
                     </div>
-                    <button type="button" id="jsonViewerBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2); margin-left: auto; margin-right: 6px;">
+                    <button type="button" id="headerRefreshBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2); margin-left: 6px;" title="Refresh">
+                        <i data-icon="refresh"></i>
+                    </button>
+                    <button type="button" id="jsonViewerBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2); margin-left: 6px; margin-right: 6px;">
                         <i data-icon="json"></i>
                     </button>
                     <button type="button" id="globalHelpBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2);">
@@ -55,7 +57,7 @@
                             <div class="terminal-output" id="terminalOutput">
                                 <div class="empty-state">
                                     <div style="width: 40px; height: 40px; opacity: 0.5;"><i data-icon="fabLogs"></i></div>
-                                    <h3>AshReXcue V2.6</h3>
+                                    <h3>AshReXcue V2.7</h3>
                                     <p>Select a log file to view contents</p>
                                 </div>
                             </div>
@@ -126,10 +128,19 @@
                                 <div class="s-row-body"><div class="s-row-label">Log counter</div></div>
                                 <span class="s-row-value" id="v-log">—</span>
                             </div>
-                            <div class="s-row cursor-default border-none">
+                            <div class="s-row cursor-default">
                                 <div class="s-row-icon icon-blue"><i data-icon="bootState"></i></div>
                                 <div class="s-row-body"><div class="s-row-label">Boot state</div></div>
                                 <span class="s-row-value" id="v-boot-state">—</span>
+                            </div>
+                            <div class="s-row cursor-pointer border-none" id="bootIdRow" style="cursor: pointer;">
+                                <div class="s-row-icon icon-gray"><i data-icon="bootId"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Kernel boot ID</div>
+                                    <div class="s-row-sub">Tap to see full ID</div>
+                                </div>
+                                <span class="s-row-value short" id="v-boot-id">—</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-3); flex-shrink: 0;"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </div>
                         </div>
                         <div class="s-plane mb-4">
@@ -394,12 +405,42 @@
                 </div>
             </div>
         </div>
+        <div id="bootIdPopup" class="popup-overlay centered">
+            <div class="popup" style="max-width: 420px;">
+                <div class="popup-header">
+                    <h3>Kernel Boot ID</h3>
+                    <button type="button" class="close-popup" id="closeBootIdPopup">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="popup-content">
+                    <p style="font-size: 11px; color: var(--text-3); margin-bottom: 10px;">Kernel Boot ID</p>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Recorded</div>
+                                <pre class="json-code" id="bootIdRecorded" style="word-break: break-all; white-space: pre-wrap; font-size: 12px; line-height: 1.5; background: var(--bg2); padding: 12px 14px; border-radius: var(--r-lg); margin: 0;">—</pre>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Current</div>
+                                <pre class="json-code" id="bootIdCurrent" style="word-break: break-all; white-space: pre-wrap; font-size: 12px; line-height: 1.5; background: var(--bg2); padding: 12px 14px; border-radius: var(--r-lg); margin: 0;">—</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" id="bootIdCopyBtn" class="refresh-btn" style="padding: 10px 18px; font-size: 11px;">Copy Current</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="activityLogPopup" class="popup-overlay">
             <div class="popup" style="max-width: 480px;">
                 <div class="popup-header">
                     <h3>Activity Log</h3>
                     <div style="display:flex; gap:8px; align-items:center;">
-                        <button type="button" id="activityCopyBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Copy</button>
+                        <button type="button" id="activitySaveBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Save</button>
                         <button type="button" id="activityClearBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Clear</button>
                         <button type="button" class="close-popup" id="closeActivityLog">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -411,5 +452,6 @@
         </div>
     </div>
     <script type="module" src="js/main.js"></script>
+
 </body>
 </html>

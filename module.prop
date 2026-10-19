@@ -1,8 +1,8 @@
 id=AshLooper
 name=AshReXcue BootLoop Protector
-version=9.9
-versionCode=199
-author=AshBorn(@Ripper_Hybrid)
-description=Advanced boot loop protection for Magisk-KernelSU/Next.
-updateJson=https://ashrexcue.pages.dev/update.json
-banner=https://ashrexcue.pages.dev/banner.png
+version=10.0
+versionCode=200
+author=AshBorn (@Ripper_Hybrid)
+description=🔰 Your safety net for bad modules. Catches boot loops, disables the culprits.
+updateJson=https://ashrexcue.pages.dev/assets/update.json
+banner=https://ashrexcue.pages.dev/assets/banner.png

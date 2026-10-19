@@ -6,40 +6,60 @@ LOG_DIR="/cache/looper"
 ASHLOOPER_DIR="/data/adb/ashlooper"
 TMP_FILE="$ASHLOOPER_DIR/tmp_modules.json"
 MODULE_LIST="$ASHLOOPER_DIR/module.json"
-JQ="$MODPATH/jq/jq"
+JQ="$MODPATH/bin/jq"
 SERVICE_D="/data/adb/service.d"
 POSTMOUNT_D="/data/adb/post-mount.d"
 POSTFSDATA_D="/data/adb/post-fs-data.d"
-boot_completed=0
 
 chooseport() {
   # Original idea by chainfire and ianmacd @xda-developers
-  [ "$1" ] && local delay=$1 || local delay=10
+  # Touch support by AshBorn (@Ripper_Hybrid)
+  local delay="${1:-10}"
+  local touch="${2:-0}"
   local retry_count=0
   local max_retries=2
-  if [ -z "$TMPDIR" ]; then TMPDIR="/data/local/tmp"; fi
-  mkdir -p "$TMPDIR"
+  local line deadline now pattern
+
+  if [ "$touch" = "1" ]; then
+    pattern="KEY_VOLUMEUP.*DOWN|KEY_VOLUMEDOWN.*DOWN|ABS_MT_TRACKING_ID"
+  else
+    pattern="KEY_VOLUMEUP.*DOWN|KEY_VOLUMEDOWN.*DOWN"
+  fi
+
   while true; do
-    local count=0
-    while true; do
-      timeout $delay /system/bin/getevent -lqc 1 2>&1 > $TMPDIR/events &
-      sleep 0.5; count=$((count + 1))
-      if (`grep -q 'KEY_VOLUMEUP *DOWN' $TMPDIR/events`); then
-        return 0
-      elif (`grep -q 'KEY_VOLUMEDOWN *DOWN' $TMPDIR/events`); then
-        return 1
-      fi
-      [ $count -gt 12 ] && break
+    now=$(date +%s)
+    deadline=$((now + delay))
+    while [ "$now" -lt "$deadline" ]; do
+      line=$(timeout -s 2 1 /system/bin/getevent -lq 2>/dev/null | grep -m 1 -E "$pattern")
+      case "$line" in
+        *KEY_VOLUMEUP*DOWN*)
+          sleep 0.2
+          return 0
+          ;;
+        *KEY_VOLUMEDOWN*DOWN*)
+          sleep 0.2
+          return 1
+          ;;
+        *ABS_MT_TRACKING_ID*)
+          sleep 0.2
+          return 2
+          ;;
+      esac
+      now=$(date +%s)
     done
     retry_count=$((retry_count + 1))
-    if [ $retry_count -gt $max_retries ]; then
+    if [ "$retry_count" -gt "$max_retries" ]; then
+      if [ "$touch" = "1" ]; then
+        echo "- Input not detected after 3 attempts. Aborting."
+        exit 1
+      fi
       echo "  > Volume key not detected after $max_retries attempts. Auto-selecting Current Option."
       return 0
-    else
-      echo "  > Volume key not detected. Attempt $retry_count of $max_retries. Try again"
     fi
+    echo "  > Input not detected. Attempt $retry_count of $max_retries. Try again"
   done
 }
+
 
 delete() { rm -f "$@"; }
 delete_recursive() { rm -rf "$@"; }
@@ -61,6 +81,31 @@ find_busybox() {
         fi
     fi
     return 1
+}
+
+get_part_size() {
+  local s
+  s=$(blockdev --getsize64 "$1" 2>/dev/null)
+  case "$s" in ''|*[!0-9]*) s=$(wc -c < "$1" 2>/dev/null) ;; esac
+  case "$s" in ''|*[!0-9]*) s=0 ;; esac
+  echo "$s"
+}
+
+get_avail_kb() {
+  local a
+  a=$(df -Pk "$1" 2>/dev/null | awk 'NR==2{print $4}')
+  case "$a" in ''|*[!0-9]*) a="" ;; esac
+  echo "$a"
+}
+
+sha_run() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$@"
+  elif [ -n "$SHA_BB" ]; then
+    "$SHA_BB" sha256sum "$@"
+  else
+    return 1
+  fi
 }
 
 [ -d /data/adb/ksu ] || [ -f /data/adb/ksu/ksu ] && KSU=1
@@ -123,6 +168,62 @@ get_prop() {
     local value=$(grep "^$prop=" "$target_file" 2>/dev/null | head -n 1 | cut -d'=' -f2-)
     value=$(printf '%s' "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/\r$//')
     printf '%s' "$value"
+}
+
+get_boot_id() {
+    local id=""
+    if [ -r "/proc/sys/kernel/random/boot_id" ]; then
+        id=$(cat "/proc/sys/kernel/random/boot_id" 2>/dev/null | tr -d ' \t\r\n')
+    fi
+    printf '%s' "${id:-unknown}"
+}
+
+get_kernel_uptime() {
+    local up=""
+    if [ -r "/proc/uptime" ]; then
+        up=$(awk '{print int($1)}' /proc/uptime 2>/dev/null)
+    fi
+    case "$up" in
+        ''|*[!0-9]*) up="0" ;;
+    esac
+    printf '%s' "$up"
+}
+
+save_boot_marker() {
+    local bid kup
+    bid=$(get_boot_id)
+    kup=$(get_kernel_uptime)
+
+    if [ "$bid" != "unknown" ]; then
+        modify_prop -s "boot_id" "$bid"
+    fi
+    if [ "$kup" -gt 0 ]; then
+        modify_prop -s "kernel_uptime" "$kup"
+    fi
+    log "Boot marker saved: Boot ID=$bid | Kernel Uptime=${kup}s"
+}
+
+is_soft_reboot() {
+    local saved_id saved_uptime current_id current_uptime
+    saved_id=$(get_prop "boot_id")
+    saved_uptime=$(get_prop "kernel_uptime")
+    current_id=$(get_boot_id)
+    current_uptime=$(get_kernel_uptime)
+
+    if [ -n "$saved_id" ] && [ "$saved_id" != "none" ] && [ "$saved_id" != "unknown" ] &&
+       [ "$current_id" != "unknown" ] && [ "$current_id" = "$saved_id" ]; then
+        log "Soft reboot check: Boot ID matched $current_id"
+        return 0
+    fi
+
+    if [ -n "$saved_uptime" ] && [ "$saved_uptime" != "none" ] && [ "$saved_uptime" != "0" ] &&
+       [ "$saved_uptime" -le "$current_uptime" ]; then
+        log "Soft reboot check: kernel uptime carried over ($saved_uptime -> ${current_uptime}s)"
+        return 0
+    fi
+
+    log "Soft reboot check: no match, real reboot"
+    return 1
 }
 
 modify_prop() {
@@ -263,6 +364,8 @@ start_run() {
     local boot_reason
     boot_reason=$(getprop sys.boot.reason 2>/dev/null)
     log "Boot reason: ${boot_reason:-Unknown}"
+    log "Boot ID: $(get_boot_id)"
+    log "Kernel Uptime: $(get_kernel_uptime)s"
     log "Device: $(getprop ro.product.model 2>/dev/null || echo Unknown)"
     log "Android: $(getprop ro.build.version.release 2>/dev/null || echo Unknown)"
     log "Module Version: $(get_prop version "$MODPATH/module.prop" 2>/dev/null || echo Unknown)"

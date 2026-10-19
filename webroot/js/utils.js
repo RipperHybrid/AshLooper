@@ -131,14 +131,6 @@ export class Utils {
     static lastActivityTime = Date.now();
     static commandHistory = [];
 
-    static lockScroll() {
-        document.body.classList.add('no-scroll');
-    }
-
-    static unlockScroll() {
-        document.body.classList.remove('no-scroll');
-    }
-
     static async getServerPort() {
         if (this.cachedPort) return this.cachedPort;
         const port = window.location.port;
@@ -164,9 +156,35 @@ export class Utils {
         ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(event => {
             document.addEventListener(event, trackActivity, { passive: true });
         });
+        this.sendHeartbeat();
         this.activityTracker = setInterval(() => {
             if (Date.now() - this.lastActivityTime < 20000) this.sendHeartbeat();
-        }, 20000);
+        }, 10000);
+
+        window.addEventListener('beforeunload', () => this.sendUnloadSignal());
+        let hiddenSince = 0;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                hiddenSince = Date.now();
+            } else if (document.visibilityState === 'visible' && hiddenSince) {
+                hiddenSince = 0;
+            }
+        });
+        setInterval(() => {
+            if (hiddenSince && (Date.now() - hiddenSince) > 5000) this.sendUnloadSignal();
+        }, 5000);
+    }
+
+    static async sendUnloadSignal() {
+        try {
+            const token = await this.getAuthToken();
+            const port = await this.getServerPort();
+            await fetch(`http://127.0.0.1:${port}/cgi-bin/exec`, {
+                method: 'POST',
+                headers: { 'X-Ash-Token': token, 'X-Ash-Action': 'unload', 'Content-Type': 'text/plain' },
+                body: 'date'
+            });
+        } catch (error) {}
     }
 
     static async sendHeartbeat() {
@@ -214,7 +232,8 @@ export class Utils {
             else if (command.includes('find ')) text = `Found ${text.trim().split('\n').length} items`;
             else if (command.includes('cat ') && command.includes('module.prop')) {
                 const m = text.match(/version=([^\n]+)/);
-                text = m ? `Read module.prop (v${m[1]})` : `Read module.prop`;
+                const ver = m ? String(m[1]).replace(/[^0-9.]/g, '') : '';
+                text = ver ? `Read module.prop (v${ver})` : `Read module.prop`;
             }
             else if (command.includes('cat ') && command.includes('settings.prop')) text = `Read settings.prop`;
             else if (command.includes('[ -f')) text = text.trim() === '1' ? 'Exists (1)' : 'Not found (0)';
@@ -395,12 +414,6 @@ export class Utils {
             }
             document.body.removeChild(textarea);
         }
-    }
-
-    static removeModal(overlay) {
-        overlay.style.animation = 'fadeOut 0.3s ease-out forwards';
-        if (overlay.firstChild) overlay.firstChild.style.animation = 'scaleOut 0.3s ease-out forwards';
-        setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 300);
     }
 
     static stopActivityTracking() {

@@ -3,33 +3,7 @@ MODPATH="${0%/*}"
 . "$MODPATH/utils.sh" || { echo "- Error: Failed to source utils.sh"; exit 1; }
 
 SESSION_TIMEOUT=300
-MAX_IDLE_TIME=120
-ACTIVITY_CHECK_INTERVAL=30
 STATE_FILE="$MODPATH/.session_state"
-
-VSKL() {
-  # Original idea by chainfire and ianmacd @xda-developers
-  # Modified by AshBorn (@Ripper_Hybrid) to add touch support
-  [ "$1" ] && local delay=$1 || local delay=10
-  local attempts=0
-  while [ $attempts -lt 3 ]; do
-    local count=0
-    while true; do
-      EVENT_LINE=$(timeout "$delay" /system/bin/getevent -lqc 1 2>&1)
-      count=$((count + 1))
-      echo "$EVENT_LINE" | grep -q 'ABS_MT_TRACKING_ID' && { sleep 0.2; return 0; }
-      echo "$EVENT_LINE" | grep -q 'KEY_VOLUMEUP *DOWN' && { sleep 0.2; return 1; }
-      echo "$EVENT_LINE" | grep -q 'KEY_VOLUMEDOWN *DOWN' && { sleep 0.2; return 2; }
-      [ $count -gt 9 ] && break
-      sleep 0.2
-    done
-    attempts=$((attempts + 1))
-    echo "- Input not detected. Try again ($attempts/3)"
-    echo " "
-  done
-  echo "- Input not detected after 3 attempts. Aborting."
-  exit
-}
 
 generate_random_port() {
     local attempts=0
@@ -97,13 +71,13 @@ start_server() {
 
     [ -f "$MODPATH/webroot/cgi-bin/exec" ] && chmod +x "$MODPATH/webroot/cgi-bin/exec"
 
-    BB_DIR=$("$FOUND_BB" dirname "$FOUND_BB")
+    BB_DIR="$("$FOUND_BB" dirname "$FOUND_BB")"
     export PATH="$BB_DIR:$PATH"
 
     echo "- Starting server on port $RANDOM_PORT..."
     "$FOUND_BB" httpd -p 127.0.0.1:$RANDOM_PORT -h "$MODPATH/webroot" >/dev/null 2>&1
     sleep 1
-    SERVER_PID=$("$FOUND_BB" pgrep -f "httpd -p 127.0.0.1:$RANDOM_PORT")
+    SERVER_PID="$("$FOUND_BB" pgrep -f "httpd -p 127.0.0.1:$RANDOM_PORT")"
 
     if [ -n "$SERVER_PID" ]; then
         chmod +x "$MODPATH/monitor.sh"
@@ -111,7 +85,7 @@ start_server() {
 
         (
             for i in 1 2 3; do
-                su 2000 -c "cmd notification post -t 'AshReXcue' 'Server Started' 'AshReXcue WebUI Localhost Started | Idle: $((MAX_IDLE_TIME/60))min'" >/dev/null 2>&1 && break
+                su 2000 -c "cmd notification post -t 'AshReXcue' 'Server Started' 'AshReXcue WebUI Localhost Started | Idle: $((SESSION_TIMEOUT/60))min'" >/dev/null 2>&1 && break
                 sleep 1
             done
         ) &
@@ -196,10 +170,10 @@ restore_menu() {
         fi
 
         echo "-> [ $current ] $name_display"
-        VSKL
+        chooseport 10 1
         key=$?
 
-        if [ "$key" -eq 1 ]; then
+        if [ "$key" -eq 0 ]; then
             if [ "$current" -eq "$total_opts" ]; then
                 break
             else
@@ -214,9 +188,9 @@ restore_menu() {
                 esac
                 current=$((current % total_opts + 1))
             fi
-        elif [ "$key" -eq 0 ]; then
-            current=$((current % total_opts + 1))
         elif [ "$key" -eq 2 ]; then
+            current=$((current % total_opts + 1))
+        elif [ "$key" -eq 1 ]; then
             current=$((current - 1))
             [ "$current" -lt 1 ] && current=$total_opts
         fi
@@ -280,15 +254,15 @@ while true; do
     esac
 
     echo "-> [ $opt ] $opt_name"
-    VSKL
+    chooseport 10 1
     key=$?
 
-    if [ "$key" -eq 1 ]; then
+    if [ "$key" -eq 0 ]; then
         selected_option=$opt
         break
-    elif [ "$key" -eq 0 ]; then
-        opt=$((opt % 5 + 1))
     elif [ "$key" -eq 2 ]; then
+        opt=$((opt % 5 + 1))
+    elif [ "$key" -eq 1 ]; then
         opt=$((opt - 1))
         [ "$opt" -lt 1 ] && opt=5
     fi
@@ -307,6 +281,9 @@ if [ "$selected_option" -eq 1 ]; then
         echo "- Redirecting to browser..."
         sleep 1
         am start -a android.intent.action.VIEW -d "http://127.0.0.1:$LAUNCH_PORT/#$LAUNCH_TOKEN" >/dev/null 2>&1
+
+        NOW=$(date +%s)
+        echo "$LAUNCH_PORT $((NOW + SESSION_TIMEOUT)) $NOW none" > "$STATE_FILE"
         echo ""
     else
         echo "- Server start failed"
@@ -397,10 +374,10 @@ elif [ "$selected_option" -eq 2 ]; then
             fi
 
             echo "-> [ $current ] $name_display"
-            VSKL
+            chooseport 10 1
             key=$?
 
-            if [ "$key" -eq 1 ]; then
+            if [ "$key" -eq 0 ]; then
                 if [ "$current" -eq "$total_opts" ]; then
                     break
                 else
@@ -415,9 +392,9 @@ elif [ "$selected_option" -eq 2 ]; then
                     esac
                     current=$((current % total_opts + 1))
                 fi
-            elif [ "$key" -eq 0 ]; then
-                current=$((current % total_opts + 1))
             elif [ "$key" -eq 2 ]; then
+                current=$((current % total_opts + 1))
+            elif [ "$key" -eq 1 ]; then
                 current=$((current - 1))
                 [ "$current" -lt 1 ] && current=$total_opts
             fi
@@ -488,10 +465,10 @@ elif [ "$selected_option" -eq 3 ]; then
             fi
 
             echo "-> [ $current ] $name_display"
-            VSKL
+            chooseport 10 1
             key=$?
 
-            if [ "$key" -eq 1 ]; then
+            if [ "$key" -eq 0 ]; then
                 if [ "$current" -eq "$total_opts" ]; then
                     break
                 else
@@ -506,9 +483,9 @@ elif [ "$selected_option" -eq 3 ]; then
                     esac
                     current=$((current % total_opts + 1))
                 fi
-            elif [ "$key" -eq 0 ]; then
-                current=$((current % total_opts + 1))
             elif [ "$key" -eq 2 ]; then
+                current=$((current % total_opts + 1))
+            elif [ "$key" -eq 1 ]; then
                 current=$((current - 1))
                 [ "$current" -lt 1 ] && current=$total_opts
             fi

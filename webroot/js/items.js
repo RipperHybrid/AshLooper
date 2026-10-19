@@ -166,7 +166,7 @@ export class ItemsManager {
             }
 
             this.items = collected;
-            if (isFirstTime) Utils.logChange('Loaded items for the first time');
+            if (isFirstTime && !this.app.firstLoadQuiet) Utils.logChange('Loaded items for the first time');
         } catch (error) {
             Utils.showToast('Failed to load modules & scripts', 'error');
         } finally {

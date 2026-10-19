@@ -223,7 +223,7 @@ export class FileManager {
                 const session = this.app.bootSessions[this.app.currentSessionIndex];
                 const start = session.meta.startLine;
                 const end = session.meta.endLine;
-                const tempPath = `/data/local/tmp/${destFilename}`;
+                const tempPath = `/data/adb/ashlooper/${destFilename}`;
                 await Utils.ksuExec(`sed -n '${start},${end}p' "${sourcePath}" > "${tempPath}"`);
                 await Utils.ksuExec(`cp "${tempPath}" "${destPath}"`);
                 await Utils.ksuExec(`rm "${tempPath}"`);

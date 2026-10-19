@@ -1,7 +1,7 @@
 # AshReXcue - Bootloop Protector
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="40%" alt="AshLooper Banner">
+  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="70%" alt="AshLooper Banner">
   <br>
   <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20Apatch%20%26%20Forks-blueviolet" alt="Compatibility Badge">
   <br>
@@ -33,9 +33,12 @@
 
 **AshReXcue** (formerly AshLooper) is a sophisticated, open-source boot protection module designed for **Magisk**, **KernelSU**, **APatch**, and their various **Forks**.
 
-Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules and, as of v9.9, early/late boot scripts too (`service.d`, `post-mount.d`, `post-fs-data.d`). It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors offering a completely local experience with no cumbersome login processes or external dependencies.
+Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules and early/late boot scripts too (`service.d`, `post-mount.d`, `post-fs-data.d`). It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors offering a completely local experience with no cumbersome login processes or external dependencies.
 
 ### 📚 [Read The Full Feature Documentation](.github/resources/feature.md)
+
+> [!TIP]
+> **Partition Backup:** AshReXcue can optionally backup critical partitions during installation. See the [Feature Documentation](.github/resources/feature.md#partition-backup) for supported partitions, how to request additional ones, and safety considerations.
 
 ---
 
@@ -43,9 +46,9 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 | Category | Description |
 | :--- | :--- |
-| 🛡️ **Smart Detection** | Differential tracking (hash + size + status) detects exactly what changed since the last successful boot to isolate bad modules **and** boot scripts, backed by aggressive `com.android.systemui` crash-loop monitoring (3-strike threshold). |
+| 🔰 **Smart Detection** | Differential tracking (hash + size + status) detects exactly what changed since the last successful boot to isolate bad modules **and** boot scripts, backed by aggressive `com.android.systemui` crash-loop monitoring (3-strike threshold). |
 | 📜 **Boot Script Guard** | Optionally tracks and protects `service.d`, `post-mount.d`, and `post-fs-data.d` scripts the same way it protects modules isolating offenders into a recovery vault instead of deleting them outright. |
-| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.6) featuring a claymorphic/neumorphic dark aesthetic, a unified **Items** control center, a global unsaved-changes tracker, and built-in diagnostics (Activity Log + JSON Viewer). |
+| 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.7) featuring a claymorphic/neumorphic dark aesthetic, a unified **Items** control center, a global unsaved-changes tracker, and built-in diagnostics (Activity Log + JSON Viewer). |
 | 🔒 **Secure Environment** | Built-in security measures including strict `/proc/net/tcp` port collision checks, decoupled static `monitor.sh` background tracking, and hash-based local authentication. |
 | ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, toggleable extra daemon checks, and intelligent crash-reboot cycling with active state-locks to prevent race conditions. |
 | 📝 **Access Control** | A unified Whitelist Manager covering both modules and boot scripts, plus a dedicated Items tab to pause, restore, or permanently remove any tracked item. |
@@ -56,11 +59,13 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 Install via your preferred root manager (**Magisk**, **KernelSU**, or **APatch**).
 
-The module features an interactive installation process. Follow the on-screen prompts using your device's physical volume keys or touch screen to configure your baseline protection settings, including whether to enable **Boot Script Monitoring**.
+The module features an interactive installation process made up of five steps. Follow the on-screen prompts and use the volume keys to configure your baseline protection settings.
 
-> **General Controls (VSKL):**
-> * **Vol+ / Screen Touch** = Select / Next Option
-> * **Vol-** = Confirm Selection
+> **Installer Controls:**
+> * **Vol+** = Select / confirm the highlighted option
+> * **Vol-** = Move to the next option
+
+During installation, AshReXcue walks you through an interactive setup so you can choose your protection mode, loop threshold, script monitoring, optional stability checks, and optional partition backup. Those choices can be changed later in the WebUI or the local Action Menu.
 
 *Note: All settings configured during installation can be modified dynamically at any time via the WebUI or the local Action Menu.*
 
@@ -95,15 +100,16 @@ Tap the **"Action"** button directly within the Magisk module menu. This seamles
 
 > [!WARNING]
 > **Compatibility**
-> Do not use this module alongside other bootloop protectors (e.g., standard Magisk Bootloop Saver). They will conflict and may cause severe boot issues.
+> Do not use this module alongside other bootloop protection modules. Running multiple bootloop protectors at the same time can conflict and may cause serious boot issues.
 
 ---
 
 ## 🤝 Credits
 
 * **jq Binary** – [jqlang.org](https://jqlang.org) - The engine behind the JSON differential analysis.
+* **zip Binary** – [Info-ZIP](https://www.info-zip.org) - Used for partition backup ZIP creation.
 * **Cloudflare** – [Pages](https://pages.cloudflare.com/) - Reliable hosting infrastructure.
 
 ## 👤 Author
 
-- **AshBorn** - [@RipperHybrid](https://github.com/RipperHybrid)
+- **AshBorn** - [@Ripper_Hybrid](https://t.me/Ripper_Hybrid)
