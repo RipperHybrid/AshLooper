@@ -101,9 +101,8 @@ jobs:
       - name: Create Release Zip
         if: steps.metadata.outputs.skip != 'true'
         run: |
-          cp .github/resources/banner.png banner
           zip -r ${{ steps.metadata.outputs.filename }} \
-          jq \
+          bin \
           META-INF \
           webroot \
           action.sh \
@@ -114,8 +113,7 @@ jobs:
           post-fs-data.sh \
           service.sh \
           settings.prop \
-          uninstall.sh \
-          banner
+          uninstall.sh
 
       - name: Check for Edit and Append Footer
         if: steps.metadata.outputs.skip != 'true'
