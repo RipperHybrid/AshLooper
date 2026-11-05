@@ -1,1 +1,28 @@
+# Normalize all text files to LF in the repo
 * text=auto eol=lf
+
+# Binaries - never diff, merge, or transform
+bin/jq          binary
+bin/zip         binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.webp          binary
+*.ttf           binary
+*.woff2         binary
+
+# Shell scripts - all must be LF for the module to run
+*.sh                                        text eol=lf linguist-language=Shell
+META-INF/com/google/android/update-binary    text eol=lf linguist-language=Shell
+webroot/cgi-bin/exec                         text eol=lf linguist-language=Shell
+
+# Everything else text
+*.html          text eol=lf
+*.css           text eol=lf
+*.js            text eol=lf
+*.json          text eol=lf
+*.prop          text eol=lf
+*.md            text eol=lf
+
+# Don't count vendored binaries in language stats
+bin/*           linguist-vendored

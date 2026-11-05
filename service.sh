@@ -3,6 +3,9 @@
 MODPATH="${0%/*}"
 . "$MODPATH"/utils.sh || exit 1
 
+set_log_file
+sanitize_settings
+
 loops=$(get_prop "loops")
 real_loops=$loops
 disable_mode=$(get_prop "disable")
@@ -14,10 +17,8 @@ extra_stability=$(get_prop "extra_stability")
 LOCKDIR="/dev/ashrexcue_lock"
 
 [ -z "$timeout" ] && timeout=60
-[ -z "$stability_time" ] && stability_time=80
-[ -z "$extra_stability" ] && extra_stability="false"
-
-set_log_file
+in_range "$stability_time" "$STAB_MIN" "$STAB_MAX" || stability_time=$STAB_DEFAULT
+[ -z "$extra_stability" ] && extra_stability="Off"
 
 # Make sure only one instance of the service is running
 if mkdir "$LOCKDIR" 2>/dev/null; then
@@ -61,25 +62,22 @@ validate_tools() {
     return 1
 }
 
-check_process() {
-    proc_name=$1
-    case "$CHECK_CMD" in
-        "pgrep_exact")
-            pgrep -x "$proc_name" >/dev/null 2>&1
-            return $?
-            ;;
-        "pgrep_loose")
-            all_pids=$(pgrep "$proc_name" 2>/dev/null)
-            if [ -n "$all_pids" ]; then return 0; else return 1; fi
-            ;;
-        "pidof")
-            pidof "$proc_name" >/dev/null 2>&1
-            return $?
-            ;;
-        *)
-            return 1
-            ;;
-    esac
+
+get_pid() {
+    gp_min=
+    for gp_p in $(pidof "$1" 2>/dev/null); do
+        if [ -z "$gp_min" ] || [ "$gp_p" -lt "$gp_min" ]; then
+            gp_min=$gp_p
+        fi
+    done
+    printf '%s' "$gp_min"
+}
+
+clear_pids() {
+    for cp_name in "$@"; do
+        eval "last_pid_$cp_name=-"
+        eval "grace_$cp_name=\$((current_time + 30))"
+    done
 }
 
 start_time=$(date +%s)
@@ -124,72 +122,122 @@ log "Starting SystemUI stability monitoring for ${stability_time}s"
 consecutive_failures=0
 failure_threshold=3
 check_interval=3
+restart_events=0
+prop_failures=0
+first_snapshot_done=0
 stability_start=$(date +%s)
 stability_end=$((stability_start + stability_time))
 current_time=$stability_start
 last_log_time=$current_time
 log_interval=5
 
-sysui_last_pid=""
-sysui_crash_count=0
+watch_list="surfaceflinger zygote64 zygote system_server com.android.systemui"
+[ "$extra_stability" = "On" ] && watch_list="servicemanager vold $watch_list"
+for w in $watch_list; do
+    s=$(printf '%s' "$w" | tr '.' '_')
+    eval "last_pid_$s="
+    eval "cur_$s="
+done
 
 while [ "$current_time" -lt "$stability_end" ]; do
+    if [ -z "$(pidof init 2>/dev/null)" ]; then
+        sleep $check_interval
+        current_time=$(date +%s)
+        continue
+    fi
+
     if ! getprop sys.boot.reason >/dev/null 2>/dev/null; then
-        log "Error cannot read system properties."
-        trigger_crash_reboot
-    fi
-
-    sysui_status=0
-    additional_checks_failed=0
-
-    current_sysui_pid=$(pidof com.android.systemui 2>/dev/null || pgrep -f com.android.systemui 2>/dev/null)
-    set -- $current_sysui_pid
-    current_sysui_pid=$1
-
-    if [ -z "$current_sysui_pid" ]; then
-        sysui_status=1
-        log "Warning com.android.systemui process missing!"
-    else
-        if [ -n "$sysui_last_pid" ] && [ "$current_sysui_pid" != "$sysui_last_pid" ]; then
-            sysui_crash_count=$((sysui_crash_count + 1))
-            log "Warning com.android.systemui crashed and restarted. Crash count: $sysui_crash_count"
-            if [ "$sysui_crash_count" -ge 3 ]; then
-                log "Error com.android.systemui is crash-looping!"
-                trigger_crash_reboot
-            fi
+        prop_failures=$((prop_failures + 1))
+        log "Warning cannot read system properties (${prop_failures}/3)"
+        if [ "$prop_failures" -ge 3 ]; then
+            log "Error cannot read system properties for 3 consecutive checks, watchdog disabled for this boot"
+            exit 0
         fi
-        sysui_last_pid="$current_sysui_pid"
+        sleep $check_interval
+        current_time=$(date +%s)
+        continue
     fi
+    prop_failures=0
 
-    if [ "$extra_stability" = "true" ]; then
-        for proc in servicemanager vold; do
-            if ! check_process "$proc"; then
-                additional_checks_failed=$((additional_checks_failed + 1))
-                log "Error $proc daemon missing!"
-            fi
+    for w in $watch_list; do
+        s=$(printf '%s' "$w" | tr '.' '_')
+        pid=$(get_pid "$w")
+        eval "cur_$s=\$pid"
+    done
+
+    if [ "$first_snapshot_done" != "1" ]; then
+        snap=""
+        for w in $watch_list; do
+            s=$(printf '%s' "$w" | tr '.' '_')
+            eval "c=\$cur_$s"
+            [ -n "$c" ] && snap="$snap $w=$c"
         done
+        if [ -n "$snap" ]; then
+            log "Initial PIDs:$snap"
+            first_snapshot_done=1
+        fi
     fi
 
-    if [ $sysui_status -eq 0 ] && [ $additional_checks_failed -eq 0 ]; then
-        if [ $consecutive_failures -gt 0 ]; then
-            log "SystemUI has recovered."
+    changed=""
+    missing=""
+    for w in $watch_list; do
+        s=$(printf '%s' "$w" | tr '.' '_')
+        eval "cur=\$cur_$s"
+        eval "prev=\$last_pid_$s"
+        case "$prev" in
+            "")
+                [ -n "$cur" ] && eval "last_pid_$s=\$cur"
+                continue
+                ;;
+            "-")
+                if [ -n "$cur" ]; then
+                    eval "last_pid_$s=\$cur"
+                    log "Warning cascade child re-enrolled: $w ($cur)"
+                else
+                    eval "gu=\$grace_$s"
+                    [ "$current_time" -ge "$gu" ] && missing="$missing $w"
+                fi
+                continue
+                ;;
+        esac
+        if [ -z "$cur" ]; then
+            missing="$missing $w"
+            continue
         fi
-        consecutive_failures=0
+        if [ "$cur" != "$prev" ]; then
+            changed="$changed $w($prev->$cur)"
+            eval "last_pid_$s=\$cur"
+            case "$w" in
+                servicemanager|surfaceflinger) clear_pids zygote64 zygote system_server com_android_systemui ;;
+                zygote64|zygote) clear_pids system_server com_android_systemui ;;
+                system_server) clear_pids com_android_systemui ;;
+            esac
+        fi
+    done
 
-        time_since_last_log=$((current_time - last_log_time))
-        if [ $time_since_last_log -ge $log_interval ]; then
-            elapsed_stability=$((current_time - stability_start))
-            log "Check: ${elapsed_stability}s / ${stability_time}s - OK"
+    if [ -n "$changed" ]; then
+        restart_events=$((restart_events + 1))
+        consecutive_failures=0
+        log "Warning restart detected:$changed (restart $restart_events/3, cascade baselines reset)"
+        if [ "$restart_events" -ge 3 ]; then
+            log "Error framework restart limit reached!"
+            trigger_crash_reboot
+            exit 0
+        fi
+    elif [ -n "$missing" ]; then
+        consecutive_failures=$((consecutive_failures + 1))
+        log "Warning missing:$missing (${consecutive_failures}/${failure_threshold})"
+        if [ "$consecutive_failures" -ge "$failure_threshold" ]; then
+            log "Error watched process missing for ${failure_threshold} consecutive checks!"
+            trigger_crash_reboot
+            exit 0
+        fi
+    else
+        consecutive_failures=0
+        if [ $((current_time - last_log_time)) -ge $log_interval ]; then
+            log "Check: $((current_time - stability_start))s / ${stability_time}s - OK"
             last_log_time=$current_time
         fi
-    else
-        consecutive_failures=$((consecutive_failures + 1))
-        log "Warning SystemUI missing ${consecutive_failures}/${failure_threshold}"
-    fi
-
-    if [ $consecutive_failures -ge $failure_threshold ]; then
-        log "Error SystemUI missing for ${failure_threshold} consecutive checks!"
-        trigger_crash_reboot
     fi
 
     sleep $check_interval
@@ -207,7 +255,11 @@ log "Boot successful. Updated timeout to $new_timeout"
 if [ -f "$TMP_FILE" ]; then
     log "Starting module comparison..."
 
-    if [ -f "$MODULE_LIST" ]; then
+    if [ -f "$MODULE_LIST" ] && ! check_bins jq; then
+        log "Error missing binary: $MISSING_BIN. Skipping module comparison."
+        rm -f "$TMP_FILE"
+    elif [ -f "$MODULE_LIST" ]; then
+        log "Binary OK: $FOUND_BINS"
         log "Previous module list found. Comparing..."
 
         jq_output=$("$JQ" -n -r --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
@@ -313,11 +365,13 @@ fi
 rm -f "$MODPATH"/monitor_*.sh
 rm -f "$MODPATH/.session_state"
 rm -f "$MODPATH/.session_warn"
-rm -f "$MODPATH/nexus_secure"
+rm -rf "$MODPATH/nexus_secure"
 
 log "WebUI cleanup: Stopped processes and removed stale files"
 
 modify_prop -s "rs" "" "$MODPATH/module.prop"
+
+write_description
 
 modify_prop -s "boot" "booted" "$MODPATH/settings.prop"
 save_boot_marker

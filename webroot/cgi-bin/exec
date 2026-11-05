@@ -5,7 +5,7 @@
 
 # --- Setup ---
 MOD_DIR="/data/adb/modules/AshLooper"
-BB_CANDIDATES="/data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox"
+BB_CANDIDATES="/data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox"
 BB="busybox"
 for candidate in $BB_CANDIDATES; do
     [ -x "$candidate" ] && BB="$candidate" && break
@@ -16,6 +16,7 @@ TOKEN_FILE="$MOD_DIR/nexus_secure/uplink_key"
 [ ! -f "$TOKEN_FILE" ] && { echo '{"code": 1, "stdout": "Auth file missing"}'; exit 1; }
 
 REAL_TOKEN=$(cat "$TOKEN_FILE" 2>/dev/null)
+[ -z "$REAL_TOKEN" ] && { echo '{"code": 1, "stdout": "Auth file empty"}'; exit 1; }
 INCOMING_TOKEN=$(echo "$HTTP_X_ASH_TOKEN" | tr -d '[:space:]')
 [ "$INCOMING_TOKEN" != "$REAL_TOKEN" ] && { echo '{"code": 1, "stdout": "Invalid Token"}'; exit 1; }
 
@@ -33,8 +34,11 @@ fi
 # --- Execution Logic ---
 RAW_CMD=$(cat)
 
-# PIPING DIRECTLY TO STDIN: Bypasses all quote escaping hell, no temp files needed.
-OUTPUT=$(printf '%s\n' "$RAW_CMD" | su -c "$BB sh" 2>&1)
+TMP_OUT=$(mktemp 2>/dev/null || echo "/data/local/tmp/ash_exec_$$.out")
+printf '%s\n' "$RAW_CMD" | su -c "$BB sh" >"$TMP_OUT" 2>&1
+CMD_STATUS=$?
+OUTPUT=$(cat "$TMP_OUT")
+rm -f "$TMP_OUT"
 
 # --- Output ---
 echo "Content-Type: application/json"
@@ -43,8 +47,34 @@ echo ""
 
 JQ="$MOD_DIR/bin/jq"
 if [ -x "$JQ" ]; then
-    printf '%s' "$OUTPUT" | "$JQ" -Rs --argjson code "0" '{code: $code, stdout: .}'
+    printf '%s' "$OUTPUT" | "$JQ" -Rs --argjson code "$CMD_STATUS" '{code: $code, stdout: .}'
 else
-    SAFE_OUT=$(printf '%s' "$OUTPUT" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/\\n/g')
-    printf '{"code": 0, "stdout": "%s"}\n' "$SAFE_OUT"
+    AWK=""
+    if [ -x "$BB" ] && "$BB" awk 'BEGIN { exit 0 }' >/dev/null 2>&1; then
+        AWK="$BB awk"
+    elif command -v awk >/dev/null 2>&1; then
+        AWK="awk"
+    fi
+
+    if [ -n "$AWK" ]; then
+        printf '%s' "$OUTPUT" | $AWK -v code="$CMD_STATUS" '
+            BEGIN {
+                ORS = ""
+                out = "{\"code\": " code ", \"stdout\": \""
+            }
+            {
+                line = $0
+                gsub(/\\/, "\\\\", line)
+                gsub(/"/, "\\\"", line)
+                gsub(/\t/, "\\t", line)
+                gsub(/\r/, "\\r", line)
+                if (NR > 1) out = out "\\n"
+                out = out line
+            }
+            END { print out "\"}\n" }
+        '
+    else
+        SAFE_OUT=$(printf '%s' "$OUTPUT" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/\\n/g')
+        printf '{"code": %s, "stdout": "%s"}\n' "$CMD_STATUS" "$SAFE_OUT"
+    fi
 fi

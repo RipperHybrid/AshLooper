@@ -1,5 +1,5 @@
 import { Utils } from './utils.js';
-import { AshLooperIcons } from './icons.js';
+import { Config } from './config.js';
 
 export class FileManager {
     constructor(mainInstance) {
@@ -8,7 +8,7 @@ export class FileManager {
     async loadLogFiles() {
         Utils.showLoadingSpinner(true);
         try {
-            const result = await Utils.ksuExec("ls -1 /cache/looper/");
+            const result = await Utils.ksuExec(`ls -1 ${Config.logDirectory}`);
             this.app.logFiles = result.split('\n')
                 .filter(file => file.trim() && /^AshReXcueSession-\d+\.log$/i.test(file.trim()))
                 .sort();
@@ -57,7 +57,7 @@ export class FileManager {
         this.app.closePopup();
         Utils.showLoadingSpinner(true);
         try {
-            const content = await Utils.ksuExec(`cat /cache/looper/${filename}`);
+            const content = await Utils.ksuExec(`cat ${Config.logDirectory}${filename}`);
             this.app.originalLines = content.split('\n');
             this.parseBootSessions();
             if (this.app.bootSessions.length > 1) {
@@ -104,7 +104,7 @@ export class FileManager {
         const isScrolledToBottom = terminalOutput ? (terminalOutput.scrollHeight - terminalOutput.scrollTop <= terminalOutput.clientHeight + 10) : false;
         Utils.showLoadingSpinner(true);
         try {
-            const content = await Utils.ksuExec(`cat /cache/looper/${filename}`);
+            const content = await Utils.ksuExec(`cat ${Config.logDirectory}${filename}`);
             this.app.originalLines = content.split('\n');
             this.parseBootSessions();
             if (prevSessionIndex !== -1) {
@@ -209,21 +209,21 @@ export class FileManager {
         Utils.showLoadingSpinner(true);
         try {
             let destFilename;
-            const sourcePath = `/cache/looper/${this.app.currentLogFile}`;
+            const sourcePath = `${Config.logDirectory}${this.app.currentLogFile}`;
             if (this.app.currentSessionIndex === -1) {
                 destFilename = this.app.currentLogFile;
             } else {
                 const session = this.app.bootSessions[this.app.currentSessionIndex];
                 destFilename = `AshReXcue-Boot${session.meta.bootNum}-${Date.now()}.log`;
             }
-            const destPath = `/storage/emulated/0/Download/${destFilename}`;
+            const destPath = `${Config.downloadDir}/${destFilename}`;
             if (this.app.currentSessionIndex === -1) {
                 await Utils.ksuExec(`cp "${sourcePath}" "${destPath}"`);
             } else {
                 const session = this.app.bootSessions[this.app.currentSessionIndex];
                 const start = session.meta.startLine;
                 const end = session.meta.endLine;
-                const tempPath = `/data/adb/ashlooper/${destFilename}`;
+                const tempPath = `${Config.ashLooperDir}/${destFilename}`;
                 await Utils.ksuExec(`sed -n '${start},${end}p' "${sourcePath}" > "${tempPath}"`);
                 await Utils.ksuExec(`cp "${tempPath}" "${destPath}"`);
                 await Utils.ksuExec(`rm "${tempPath}"`);

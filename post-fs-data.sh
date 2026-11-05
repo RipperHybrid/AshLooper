@@ -6,6 +6,7 @@ MODPATH="${0%/*}"
 ROOT_TYPE="$method"
 
 set_log_file
+sanitize_settings
 start_run
 
 create_mod_list

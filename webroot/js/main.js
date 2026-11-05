@@ -4,14 +4,7 @@ import { SettingsManager } from './settings.js';
 import { WhitelistManager } from './whitelist.js';
 import { ItemsManager } from './items.js';
 import { AshLooperIcons } from './icons.js';
-
-export const Config = {
-    logDirectory: '/cache/looper/',
-    moduleDir: '/data/adb/modules/AshLooper',
-    modulePropPath: '/data/adb/modules/AshLooper/module.prop',
-    settingsPropPath: '/data/adb/modules/AshLooper/settings.prop',
-    ashLooperDir: '/data/adb/ashlooper',
-};
+import { Config } from './config.js';
 
 class AshReXcueWebUI {
     constructor() {
@@ -46,78 +39,26 @@ class AshReXcueWebUI {
     }
 
     async init() {
+        const env = (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') ? 'KSU WebUI' : 'Localhost';
+        Utils.updateConsole('AshReXcue WebUI V2.7 initialized');
+        Utils.updateConsole(`Connection: ${env}`);
+        Utils.updateConsole('Monitoring For Loops...');
+
         AshLooperIcons.renderAll();
         this.renderNav();
         this.setupEventListeners();
         this.setupRefreshButton();
         this.fileManager.loadLogFiles();
         await this.settingsManager.loadModuleData();
+        await this.settingsManager.sanitizeLoadedValues();
+        this.cleanupStaleUpdateFiles();
+    }
 
-        if (!document.getElementById('moduleInfoPopup')) {
-            const headerBtn = document.getElementById('appHeaderBtn');
-            if (headerBtn) {
-                const popup = document.createElement('div');
-                popup.id = 'moduleInfoPopup';
-                popup.className = 'popup-overlay';
-                popup.innerHTML = `<div class="popup" style="max-width: 400px;">
-                    <div class="popup-header">
-                        <h3>Module Info</h3>
-                        <button type="button" class="close-popup" id="closeModuleInfoPopup">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
-                    </div>
-                    <div class="popup-content">
-                        <div class="s-row cursor-default">
-                            <div class="s-row-body"><div class="s-row-label">Name</div></div>
-                            <span class="s-row-value ok" id="v-name">—</span>
-                        </div>
-                        <div class="s-row cursor-default">
-                            <div class="s-row-body"><div class="s-row-label">Version</div></div>
-                            <span class="s-row-value ok" id="v-version">—</span>
-                        </div>
-                        <div class="s-row cursor-default">
-                            <div class="s-row-body"><div class="s-row-label">Version Code</div></div>
-                            <span class="s-row-value ok" id="v-version-code">—</span>
-                        </div>
-                        <div class="s-row cursor-default">
-                            <div class="s-row-body"><div class="s-row-label">Author</div></div>
-                            <span class="s-row-value ok" id="v-author">—</span>
-                        </div>
-                        <div class="s-row cursor-default border-none">
-                            <div class="s-row-body"><div class="s-row-label">Module ID</div></div>
-                            <span class="s-row-value ok" id="v-module-id">—</span>
-                        </div>
-                    </div>
-                </div>`;
-                document.body.appendChild(popup);
-            }
-        }
-        if (!document.getElementById('jsonViewerPopup')) {
-            const popup = document.createElement('div');
-            popup.id = 'jsonViewerPopup';
-            popup.className = 'popup-overlay centered';
-            popup.innerHTML = `<div class="popup fixed-height" style="max-width: 480px;">
-                <div class="popup-header">
-                    <h3>Module JSON</h3>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button type="button" id="jsonCopyBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Copy</button>
-                        <button type="button" class="close-popup" id="closeJsonViewer">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="popup-content">
-                    <pre class="json-code" id="jsonViewerContent">Loading...</pre>
-                </div>
-            </div>`;
-            document.body.appendChild(popup);
-        }
-
-        const env = (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') ? 'KSU WebUI' : 'Localhost';
-
-        Utils.updateConsole('AshReXcue WebUI V2.7 initialized');
-        Utils.updateConsole(`Connection: ${env}`);
-        Utils.updateConsole('Monitoring For Loops...');
+    async cleanupStaleUpdateFiles() {
+        const dir = Config.ashLooperDir;
+        try {
+            await Utils.ksuExec(`find "${dir}" -maxdepth 1 -name "update_*.status" -mmin +60 -exec rm -f {} + 2>/dev/null; find "${dir}" -maxdepth 1 -name "update_*.out" -mmin +60 -exec rm -f {} + 2>/dev/null; true`);
+        } catch (e) {}
     }
 
     renderNav() {
@@ -140,7 +81,6 @@ class AshReXcueWebUI {
 
     async runInitialScan() {
         try {
-            await this.settingsManager.loadModuleData();
             await this.refreshBootState();
             await this.whitelistManager.loadModules(false);
             await this.itemsManager.loadItems(false);
@@ -239,8 +179,6 @@ class AshReXcueWebUI {
     updateGlobalPill() {
         const sm = this.settingsManager;
         const wm = this.whitelistManager;
-        const im = this.itemsManager;
-
         const settingsCount = sm.pendingChanges ? Object.keys(sm.pendingChanges).length : 0;
         const whitelistCount = wm.pendingChanges ? wm.pendingChanges.size : 0;
 
@@ -271,7 +209,7 @@ class AshReXcueWebUI {
                     this.pill.setSaving(true);
                     Utils.showLoadingSpinner(true);
 
-                    if (settingsCount > 0) await sm._save(true);
+                    if (settingsCount > 0) await sm.save(true);
                     if (whitelistCount > 0) await wm.applyChanges(true);
 
                     this.pill.setSaving(false);
@@ -280,8 +218,8 @@ class AshReXcueWebUI {
                     Utils.showToast('All changes saved', 'success');
                 },
                 onDiscard: () => {
-                    if (settingsCount > 0) sm._discard(true);
-                    if (whitelistCount > 0) wm._discard(true);
+                    if (settingsCount > 0) sm.discard(true);
+                    if (whitelistCount > 0) wm.discard(true);
 
                     this.pill.hide();
                     Utils.showToast('All changes discarded', 'info');
@@ -353,20 +291,11 @@ class AshReXcueWebUI {
 
     setupEventListeners() {
         const fileSelectBtn = document.getElementById('fileSelectBtn');
-        const closeFilePopupBtn = document.getElementById('closeFilePopup');
-        const popupOverlay = document.getElementById('filePopup');
 
         if(fileSelectBtn) fileSelectBtn.addEventListener('click', () => this.togglePopup());
-        if(closeFilePopupBtn) closeFilePopupBtn.addEventListener('click', () => this.closePopup());
-        if(popupOverlay) {
-            popupOverlay.addEventListener('click', (e) => {
-                if (e.target === popupOverlay) this.closePopup();
-            });
-        }
+        Utils.bindPopupClose('filePopup', 'closeFilePopup');
 
         const appHeaderBtn = document.getElementById('appHeaderBtn');
-        const moduleInfoPopup = document.getElementById('moduleInfoPopup');
-        const closeModuleInfoPopup = document.getElementById('closeModuleInfoPopup');
 
         if (appHeaderBtn) {
             appHeaderBtn.style.cursor = 'pointer';
@@ -375,52 +304,24 @@ class AshReXcueWebUI {
                 this.openModuleInfoPopup();
             });
         }
-        if (closeModuleInfoPopup) {
-            closeModuleInfoPopup.addEventListener('click', () => {
-                if (moduleInfoPopup) moduleInfoPopup.classList.remove('active');
-                document.body.classList.remove('popup-open');
-            });
-        }
-        if (moduleInfoPopup) {
-            moduleInfoPopup.addEventListener('click', (e) => {
-                if (e.target === moduleInfoPopup) {
-                    moduleInfoPopup.classList.remove('active');
-                    document.body.classList.remove('popup-open');
-                }
-            });
-        }
+
+        Utils.bindPopupClose('moduleInfoPopup', 'closeModuleInfoPopup');
 
         const globalHelpBtn = document.getElementById('globalHelpBtn');
-        const globalHelpPopup = document.getElementById('globalHelpPopup');
-        const closeGlobalHelpPopup = document.getElementById('closeGlobalHelpPopup');
 
         if (globalHelpBtn) {
             globalHelpBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (globalHelpPopup) {
-                    globalHelpPopup.classList.add('active');
-                    document.body.classList.add('popup-open');
-                }
+                this.setupGuidePager();
+                Utils.openPopup('globalHelpPopup');
+                const guidePager = document.getElementById('guidePager');
+                if (guidePager) guidePager.scrollLeft = 0;
+                if (this.guideSync) this.guideSync();
             });
         }
-        if (closeGlobalHelpPopup) {
-            closeGlobalHelpPopup.addEventListener('click', () => {
-                if (globalHelpPopup) globalHelpPopup.classList.remove('active');
-                document.body.classList.remove('popup-open');
-            });
-        }
-        if (globalHelpPopup) {
-            globalHelpPopup.addEventListener('click', (e) => {
-                if (e.target === globalHelpPopup) {
-                    globalHelpPopup.classList.remove('active');
-                    document.body.classList.remove('popup-open');
-                }
-            });
-        }
+        Utils.bindPopupClose('globalHelpPopup', 'closeGlobalHelpPopup');
 
         const jsonViewerBtn = document.getElementById('jsonViewerBtn');
-        const jsonViewerPopup = document.getElementById('jsonViewerPopup');
-        const closeJsonViewer = document.getElementById('closeJsonViewer');
         const jsonCopyBtn = document.getElementById('jsonCopyBtn');
 
         if (jsonViewerBtn) {
@@ -433,20 +334,8 @@ class AshReXcueWebUI {
         if (headerRefreshBtn) {
             headerRefreshBtn.addEventListener('click', () => this.refreshAll());
         }
-        if (closeJsonViewer) {
-            closeJsonViewer.addEventListener('click', () => {
-                if (jsonViewerPopup) jsonViewerPopup.classList.remove('active');
-                document.body.classList.remove('popup-open');
-            });
-        }
-        if (jsonViewerPopup) {
-            jsonViewerPopup.addEventListener('click', (e) => {
-                if (e.target === jsonViewerPopup) {
-                    jsonViewerPopup.classList.remove('active');
-                    document.body.classList.remove('popup-open');
-                }
-            });
-        }
+
+        Utils.bindPopupClose('jsonViewerPopup', 'closeJsonViewer');
         if (jsonCopyBtn) {
             jsonCopyBtn.addEventListener('click', () => {
                 if (this.currentJsonRaw) {
@@ -461,21 +350,20 @@ class AshReXcueWebUI {
         this.runInitialScan();
         this.firstLoadQuiet = false;
 
+        const checkUpdateBtn = document.getElementById('checkUpdateBtn');
         const activityLogBtn = document.getElementById('activityLogBtn');
-        const activityLogPopup = document.getElementById('activityLogPopup');
-        const closeActivityLog = document.getElementById('closeActivityLog');
         const activityClearBtn = document.getElementById('activityClearBtn');
         const activitySaveBtn = document.getElementById('activitySaveBtn');
 
+        if (checkUpdateBtn) checkUpdateBtn.addEventListener('click', () => this.openUpdatePopup());
         if (activityLogBtn) activityLogBtn.addEventListener('click', () => this.openActivityLog());
-        if (closeActivityLog) closeActivityLog.addEventListener('click', () => this.closeActivityLogPopup());
-        if (activityLogPopup) {
-            activityLogPopup.addEventListener('click', (e) => {
-                if (e.target === activityLogPopup) this.closeActivityLogPopup();
-            });
-        }
         if (activityClearBtn) activityClearBtn.addEventListener('click', () => this.clearActivityLog());
         if (activitySaveBtn) activitySaveBtn.addEventListener('click', () => this.saveActivityLog());
+
+        Utils.bindPopupClose('activityLogPopup', 'closeActivityLog');
+        Utils.bindPopupClose('changelogPopup', 'closeChangelogPopup');
+        Utils.bindPopupClose('updatePopup', 'closeUpdatePopup');
+
 
         this.setupTerminalControls();
 
@@ -490,19 +378,43 @@ class AshReXcueWebUI {
         document.addEventListener('mousedown', blurInput, { passive: true });
     }
 
+    setupGuidePager() {
+        if (this.guidePagerBound) return;
+        const pager = document.getElementById('guidePager');
+        const popup = document.getElementById('globalHelpPopup');
+        const dots = document.querySelectorAll('#guideDots .guide-dot');
+        if (!pager || !popup) return;
+        this.guidePagerBound = true;
+
+        this.guideSync = () => {
+            const w = pager.clientWidth || 1;
+            const idx = Math.round(pager.scrollLeft / w);
+            dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+        };
+
+        pager.addEventListener('scroll', this.guideSync, { passive: true });
+
+        ['touchstart', 'touchmove', 'touchend'].forEach(evt => {
+            popup.addEventListener(evt, (e) => e.stopPropagation(), { passive: true });
+        });
+
+        dots.forEach(d => {
+            d.addEventListener('click', () => {
+                const page = parseInt(d.dataset.page, 10) || 0;
+                pager.scrollTo({ left: page * pager.clientWidth, behavior: 'smooth' });
+            });
+        });
+    }
+
     async openModuleInfoPopup() {
-        const moduleInfoPopup = document.getElementById('moduleInfoPopup');
-        document.body.classList.add('popup-open');
         this.settingsManager.updateModuleInfoPopup();
-        if (moduleInfoPopup) moduleInfoPopup.classList.add('active');
+        Utils.openPopup('moduleInfoPopup');
         await this.settingsManager.loadModuleData();
         this.settingsManager.updateModuleInfoPopup();
     }
 
     async openJsonViewer() {
-        document.body.classList.add('popup-open');
-        const popup = document.getElementById('jsonViewerPopup');
-        if (popup) popup.classList.add('active');
+        Utils.openPopup('jsonViewerPopup');
         await this.loadJsonContent();
     }
 
@@ -531,17 +443,403 @@ class AshReXcueWebUI {
         return div.innerHTML;
     }
 
-    async openActivityLog() {
-        document.body.classList.add('popup-open');
-        const popup = document.getElementById('activityLogPopup');
-        if (popup) popup.classList.add('active');
-        this.renderActivityLog();
+    async installUpdate(url, version) {
+        const btn = document.getElementById('downloadUpdateBtn');
+        if (!btn || btn.classList.contains('busy')) return;
+        const originalHtml = btn.innerHTML;
+        btn.classList.add('busy');
+
+        const termEl = document.getElementById('installTermOutput');
+        const barEl = document.getElementById('installProgressBar');
+        const stageEl = document.getElementById('installStage');
+        const titleEl = document.getElementById('installTermTitle');
+        const closeBtn = document.getElementById('installTermCloseBtn');
+        const saveBtn = document.getElementById('installTermSaveBtn');
+
+        let pct = 3;
+        const setBar = (value, cls) => {
+            pct = value;
+            barEl.style.width = `${value}%`;
+            barEl.className = `install-progress-bar${cls ? ' ' + cls : ''}`;
+        };
+
+        this.installTermText = '';
+        this.installTermVersion = version || '';
+        termEl.textContent = '';
+        setBar(3);
+        stageEl.textContent = 'Preparing...';
+        titleEl.textContent = `Installing${version ? ' v' + version : ''}`;
+        closeBtn.disabled = true;
+        closeBtn.onclick = () => Utils.closePopup('installTermPopup');
+        saveBtn.onclick = () => this.saveInstallLog();
+        Utils.openPopup('installTermPopup');
+
+        const stamp = Date.now();
+        const status = `${Config.ashLooperDir}/update_${stamp}.status`;
+        const outFile = `${Config.ashLooperDir}/update_${stamp}.out`;
+        let zip = '';
+        let result = '';
+
+        const render = (text) => {
+            const clean = text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+            if (clean === this.installTermText) return;
+            this.installTermText = clean;
+            termEl.textContent = clean;
+            termEl.scrollTop = termEl.scrollHeight;
+        };
+
+        try {
+            if (!Utils.isSafeUrl(url)) throw new Error('Invalid download URL');
+            zip = `${Config.ashLooperDir}/${Utils.getUpdateFileName(url, version)}`;
+            const installCmd = Utils.buildInstallCommand(zip);
+
+            const worker = [
+                Utils.getBusyboxCmd(),
+                `mkdir -p "${Config.ashLooperDir}"`,
+                `rm -f "${status}" "${outFile}"`,
+                `: > "${outFile}"`,
+                `( trap '' HUP; if [ -z "$bb" ]; then echo FAIL_BB > "${status}"; exit 0; fi; echo DOWNLOADING > "${status}"; if "$bb" wget -q -T ${Config.timeouts.wgetDownloadSeconds} -O "${zip}" "${url}" && [ -s "${zip}" ]; then echo INSTALLING > "${status}"; ( ${installCmd} ) >"${outFile}" 2>&1; rc=$?; rm -f "${zip}"; if [ $rc -eq 0 ]; then echo OK > "${status}"; else echo FAIL_INSTALL > "${status}"; fi; else rm -f "${zip}"; echo FAIL_DL > "${status}"; fi ) </dev/null >/dev/null 2>&1 &`
+            ].join('; ');
+
+            await Utils.ksuExecTimeout(worker, 10000);
+
+            let deadline = Date.now() + Config.timeouts.download;
+            let state = '';
+            while (Date.now() < deadline) {
+                await new Promise(resolve => setTimeout(resolve, 700));
+                let raw = '';
+                try {
+                    raw = await Utils.ksuExecTimeout(`cat "${status}" 2>/dev/null; echo "@@OUT@@"; tail -c 6000 "${outFile}" 2>/dev/null; true`, 5000);
+                } catch (e) {
+                    raw = '';
+                }
+                const parts = raw.split('@@OUT@@');
+                const s = (parts[0] || '').trim();
+                const out = (parts[1] || '').replace(/^\n/, '');
+
+                if (s !== state) {
+                    state = s;
+                    if (s === 'INSTALLING') deadline = Date.now() + Config.timeouts.install;
+                    if (s === 'DOWNLOADING') { setBar(Math.max(pct, 12)); stageEl.textContent = 'Downloading...'; }
+                    else if (s === 'INSTALLING') { setBar(Math.max(pct, 55)); stageEl.textContent = 'Installing...'; }
+                }
+                if (s === 'DOWNLOADING') setBar(Math.min(50, pct + 1.2));
+                else if (s === 'INSTALLING') setBar(Math.min(95, pct + 0.4));
+                if (out) render(out);
+
+                if (s === 'OK' || s.startsWith('FAIL')) {
+                    result = s;
+                    break;
+                }
+            }
+
+            if (result !== 'OK') {
+                const reasons = {
+                    FAIL_BB: 'Busybox not found',
+                    FAIL_DL: 'Download failed',
+                    FAIL_INSTALL: 'Install failed'
+                };
+                throw new Error(reasons[result] || 'Timed out');
+            }
+
+            setBar(100, 'done');
+            titleEl.textContent = 'Installed';
+            stageEl.textContent = 'Done. Reboot to apply.';
+            Utils.showToast('Module installed. Reboot to apply', 'success');
+            Utils.updateConsole(`Module installed from ${zip}`, 'success');
+            Utils.logChange(`Installed update ${version || ''}`.trim());
+            btn.classList.remove('busy');
+            btn.classList.replace('primary', 'success');
+            btn.innerHTML = `${AshLooperIcons.getCheckIcon()} Installed, reboot to apply`;
+            btn.onclick = null;
+        } catch (e) {
+            const msg = e.message || 'Install failed';
+            setBar(Math.max(pct, 8), 'failed');
+            titleEl.textContent = 'Install failed';
+            stageEl.textContent = msg;
+            this.installTermText += `${this.installTermText && !this.installTermText.endsWith('\n') ? '\n' : ''}[FAILED] ${msg}\n`;
+            termEl.textContent = this.installTermText;
+            termEl.scrollTop = termEl.scrollHeight;
+            Utils.showToast(msg, 'error');
+            Utils.updateConsole(`Update failed: ${msg}`, 'error');
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('busy');
+        } finally {
+            closeBtn.disabled = false;
+            try {
+                await Utils.ksuExecTimeout(`rm -f "${zip}" "${status}" "${outFile}"`, 5000);
+            } catch (e) {}
+        }
     }
 
-    closeActivityLogPopup() {
-        const popup = document.getElementById('activityLogPopup');
-        if (popup) popup.classList.remove('active');
-        document.body.classList.remove('popup-open');
+    saveInstallLog() {
+        if (!this.installTermText) {
+            Utils.showToast('Nothing to save', 'warning');
+            return;
+        }
+        const text = [
+            'AshReXcue Install Log',
+            `Version: ${this.installTermVersion || 'unknown'}`,
+            `Exported: ${new Date().toISOString()}`,
+            '',
+            this.installTermText
+        ].join('\n');
+        const destFilename = `AshReXcue-InstallLog-${Date.now()}.txt`;
+        const destPath = `${Config.downloadDir}/${destFilename}`;
+        const tempPath = `${Config.ashLooperDir}/${destFilename}`;
+        const b64 = btoa(unescape(encodeURIComponent(text)));
+
+        Utils.ksuExec(`printf '%s' '${b64}' | base64 -d > "${tempPath}"`)
+            .then(() => Utils.ksuExec(`cp "${tempPath}" "${destPath}"`))
+            .then(() => Utils.ksuExec(`rm "${tempPath}"`))
+            .then(() => {
+                Utils.updateConsole(`Saved to ${destPath}`, 'success');
+                Utils.showToast('Install log saved', 'success');
+            })
+            .catch(err => {
+                Utils.showToast(`Save failed: ${err.message}`, 'error');
+            });
+    }
+
+    async showChangelog(url) {
+        const contentEl = document.getElementById('changelogContent');
+        if (!contentEl) return;
+
+        contentEl.innerHTML = `<div class="popup-loading"><div class="spinner"></div><div class="popup-loading-text">Loading release notes...</div></div>`;
+        Utils.openPopup('changelogPopup');
+
+        this.changelogReqId = (this.changelogReqId || 0) + 1;
+        const reqId = this.changelogReqId;
+
+        await Utils.nextFrame();
+
+        try {
+            if (!Utils.isSafeUrl(url)) throw new Error('Invalid changelog URL');
+            const cmd = `${Utils.getBusyboxCmd()}; "$bb" wget -q -O - -T ${Config.timeouts.wgetSeconds} "${url}"`;
+            const raw = await Utils.ksuExecTimeout(cmd, Config.timeouts.fetch);
+            if (reqId !== this.changelogReqId) return;
+            if (!raw || raw.trim() === '') throw new Error('Empty response');
+            contentEl.innerHTML = `<div class="md-content">${this.renderMarkdown(raw)}</div>`;
+        } catch (e) {
+            if (reqId !== this.changelogReqId) return;
+            contentEl.innerHTML = `<div class="debug-err err-box">Failed to load release notes.</div>`;
+        }
+    }
+
+    renderMarkdown(raw) {
+        const fence = '\u0060\u0060\u0060';
+        const inline = (text) => this.escapeHtml(text)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[^*])\*([^*\s][^*]*)\*(?!\*)/g, '$1<em>$2</em>')
+            .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<span class="md-link">$1</span>');
+
+        const lines = raw.replace(/\r/g, '').split('\n');
+        let html = '';
+        let list = null;
+        let inCode = false;
+        let code = [];
+
+        const closeList = () => {
+            if (list) {
+                html += `</${list}>`;
+                list = null;
+            }
+        };
+        const openList = (type) => {
+            if (list !== type) {
+                closeList();
+                html += `<${type}>`;
+                list = type;
+            }
+        };
+
+        for (const line of lines) {
+            const l = line.trim();
+
+            if (l.startsWith(fence)) {
+                if (inCode) {
+                    html += `<pre>${this.escapeHtml(code.join('\n'))}</pre>`;
+                    code = [];
+                    inCode = false;
+                } else {
+                    closeList();
+                    inCode = true;
+                }
+                continue;
+            }
+            if (inCode) {
+                code.push(line);
+                continue;
+            }
+            if (!l) {
+                closeList();
+                continue;
+            }
+
+            const heading = l.match(/^(#{1,4})\s+(.*)$/);
+            const bullet = l.match(/^[*-]\s+(.*)$/);
+            const numbered = l.match(/^\d+\.\s+(.*)$/);
+            const quote = l.match(/^>\s?(.*)$/);
+
+            if (/^(-{3,}|\*{3,})$/.test(l)) {
+                closeList();
+                html += '<hr>';
+            } else if (heading) {
+                closeList();
+                const n = heading[1].length;
+                html += `<h${n}>${inline(heading[2])}</h${n}>`;
+            } else if (bullet) {
+                openList('ul');
+                html += `<li>${inline(bullet[1])}</li>`;
+            } else if (numbered) {
+                openList('ol');
+                html += `<li>${inline(numbered[1])}</li>`;
+            } else if (quote) {
+                closeList();
+                html += `<blockquote>${inline(quote[1])}</blockquote>`;
+            } else {
+                closeList();
+                html += `<p>${inline(l)}</p>`;
+            }
+        }
+
+        closeList();
+        if (inCode && code.length) html += `<pre>${this.escapeHtml(code.join('\n'))}</pre>`;
+        return html;
+    }
+
+    async openUpdatePopup() {
+        const titleEl = document.getElementById('updatePopupTitle');
+        const contentEl = document.getElementById('updatePopupContent');
+        if (!titleEl || !contentEl) return;
+
+        titleEl.textContent = 'Check Update';
+        contentEl.innerHTML = `<div class="popup-loading"><div class="spinner"></div><div class="popup-loading-text">Fetching module info...</div></div>`;
+
+        Utils.openPopup('updatePopup');
+
+        this.updateReqId = (this.updateReqId || 0) + 1;
+        const reqId = this.updateReqId;
+
+        await Utils.nextFrame();
+
+        let raw = '';
+        try {
+            raw = await Utils.ksuExecTimeout(
+                `${Utils.getBusyboxCmd()}; ` +
+                `[ -z "$bb" ] && { echo "NO_BUSYBOX"; exit 0; }; ` +
+                `"$bb" wget -q -O - -T ${Config.timeouts.wgetSeconds} -t 1 ${Config.updateManifestUrl} 2>/dev/null || echo "FETCH_FAILED"`,
+                Config.timeouts.fetch
+            );
+        } catch (e) {
+            raw = 'FETCH_FAILED';
+        }
+
+        if (reqId !== this.updateReqId) return;
+
+        this.renderUpdateResult(raw, contentEl);
+    }
+
+    renderUpdateResult(raw, contentEl) {
+        const info = this.moduleInfo;
+        const currentVersion = info.version || '—';
+        const currentVersionCode = info.versionCode || '—';
+
+        const headerHtml = `
+            <div class="s-row border-none mb-4 pad-12-4">
+                <div class="s-row-body">
+                    <div class="s-row-label">Current Version</div>
+                    <div class="s-row-sub">Installed module version</div>
+                </div>
+                <span class="s-row-value ok text-right">${this.escapeHtml(currentVersion)} (${this.escapeHtml(currentVersionCode)})</span>
+            </div>`;
+
+        let updateJson = null;
+        const trimmed = (raw || '').trim();
+
+        if (trimmed && trimmed !== 'FETCH_FAILED' && trimmed !== 'NO_BUSYBOX') {
+            try { updateJson = JSON.parse(trimmed); } catch (e) { updateJson = null; }
+        }
+
+        if (!updateJson) {
+            const reason = trimmed === 'NO_BUSYBOX'
+                ? 'Busybox not found on device.'
+                : trimmed === 'FETCH_FAILED'
+                ? 'Network request failed (no connection or host unreachable).'
+                : 'Could not parse update manifest.';
+            contentEl.innerHTML = headerHtml + `<div class="debug-err err-box">${this.escapeHtml(reason)}</div>`;
+            return;
+        }
+
+        const remoteVersion = updateJson.version || '—';
+        const remoteVersionCode = updateJson.versionCode || '—';
+        const zipUrl = updateJson.zipUrl || '';
+        const changelogUrl = updateJson.changelog || '';
+
+        const currentCodeNum = parseInt(String(currentVersionCode).replace(/[^0-9]/g, ''), 10);
+        const remoteCodeNum = parseInt(String(remoteVersionCode).replace(/[^0-9]/g, ''), 10);
+
+        let isUpdateAvailable = false;
+        if (!isNaN(remoteCodeNum) && !isNaN(currentCodeNum)) {
+            isUpdateAvailable = remoteCodeNum > currentCodeNum;
+        } else {
+            isUpdateAvailable = currentVersion !== remoteVersion;
+        }
+
+        const isTestBuild = currentVersion !== '—' && !/^\d+(\.\d+)*$/.test(String(currentVersion).trim());
+
+        const changelogButton = (label) => `
+            <button type="button" id="viewChangelogBtn" class="action-btn secondary">
+                ${AshLooperIcons.getFileTextIcon()}
+                ${label}
+            </button>`;
+
+        let actionButtons = '';
+        if ((isUpdateAvailable || isTestBuild) && zipUrl) {
+            actionButtons = `
+            <div class="action-stack">
+                <button type="button" id="downloadUpdateBtn" class="action-btn primary">
+                    ${AshLooperIcons.getInstallIcon()}
+                    Install v${this.escapeHtml(remoteVersion)}
+                </button>
+                ${changelogUrl ? changelogButton('View Changelog') : ''}
+            </div>`;
+        } else if (!isUpdateAvailable && changelogUrl) {
+            actionButtons = `
+            <div class="action-stack">
+                ${changelogButton('View Release Notes')}
+            </div>`;
+        }
+
+        const banner = isTestBuild
+            ? `<div class="info-banner mb-14 text-red"><i data-icon="warning"></i><span>Test build detected (${this.escapeHtml(currentVersion)}). Installing will replace it with the official release v${this.escapeHtml(remoteVersion)}.</span></div>`
+            : isUpdateAvailable
+            ? `<div class="info-banner mb-14"><i data-icon="warning"></i><span>A newer version is available.</span></div>`
+            : `<div class="info-banner warn mb-14"><i data-icon="infoCircle"></i><span>You are on the latest available version.</span></div>`;
+
+        contentEl.innerHTML = headerHtml + banner + `
+            <div class="s-row border-none pad-12-4">
+                <div class="s-row-body">
+                    <div class="s-row-label">Remote Version</div>
+                    <div class="s-row-sub">Latest release</div>
+                </div>
+                <span class="s-row-value ok text-right">${this.escapeHtml(remoteVersion)} (${this.escapeHtml(remoteVersionCode)})</span>
+            </div>
+            ${actionButtons}`;
+
+        const viewChangelogBtn = document.getElementById('viewChangelogBtn');
+        const downloadUpdateBtn = document.getElementById('downloadUpdateBtn');
+
+        if (viewChangelogBtn) viewChangelogBtn.onclick = () => this.showChangelog(changelogUrl);
+        if (downloadUpdateBtn) downloadUpdateBtn.onclick = () => this.installUpdate(zipUrl, remoteVersion);
+
+        AshLooperIcons.renderAll();
+    }
+
+    async openActivityLog() {
+        Utils.openPopup('activityLogPopup');
+        this.renderActivityLog();
     }
 
     renderActivityLog() {
@@ -553,12 +851,6 @@ class AshReXcueWebUI {
             return;
         }
         content.innerHTML = history.slice().reverse().map((entry, idx) => {
-            const block = [
-                `#${history.length - idx}  ${entry.time}`,
-                `CMD: ${entry.command}`,
-                entry.error ? `ERR: ${entry.error}` : `OUT: ${entry.output || '(empty)'}`
-            ].join('\n');
-            const escapedBlock = this.escapeHtml(block);
             return `
             <div class="debug-entry">
                 <div class="debug-entry-head">
@@ -614,11 +906,12 @@ class AshReXcueWebUI {
         });
         const text = lines.join('\n');
         const destFilename = `AshReXcue-ActivityLog-${Date.now()}.txt`;
-        const destPath = `/storage/emulated/0/Download/${destFilename}`;
-        const tempPath = `/data/adb/ashlooper/${destFilename}`;
+        const destPath = `${Config.downloadDir}/${destFilename}`;
+        const tempPath = `${Config.ashLooperDir}/${destFilename}`;
+        const b64 = btoa(unescape(encodeURIComponent(text)));
 
         Utils.updateConsole(`Saving activity log to ${destPath}`, 'info');
-        Utils.ksuExec(`printf '%s' "${text.replace(/"/g, '\\"')}" > "${tempPath}"`)
+        Utils.ksuExec(`printf '%s' '${b64}' | base64 -d > "${tempPath}"`)
             .then(() => Utils.ksuExec(`cp "${tempPath}" "${destPath}"`))
             .then(() => Utils.ksuExec(`rm "${tempPath}"`))
             .then(() => {
@@ -629,17 +922,6 @@ class AshReXcueWebUI {
                 Utils.updateConsole(`Save failed: ${err.message}`, 'error');
                 Utils.showToast(`Save failed: ${err.message}`, 'error');
             });
-    }
-
-    copyActivityLog() {
-        if (Utils.commandHistory.length === 0) {
-            Utils.showToast('Nothing to copy', 'warning');
-            return;
-        }
-        const text = Utils.commandHistory.map((entry, idx) =>
-            `[${idx + 1}] ${entry.time}\nCMD: ${entry.command}\n${entry.error ? `ERR: ${entry.error}` : `OUT: ${entry.output}`}\n`
-        ).join('\n-------------------\n');
-        Utils.copyToClipboard(text);
     }
 
     async clearActivityLog() {
@@ -705,16 +987,11 @@ class AshReXcueWebUI {
 
     togglePopup() {
         const popup = document.getElementById('filePopup');
-        popup.classList.toggle('active');
-        if (popup.classList.contains('active')) {
-            document.body.classList.add('popup-open');
-        } else {
-            document.body.classList.remove('popup-open');
-        }
+        if (popup.classList.contains('active')) Utils.closePopup('filePopup');
+        else Utils.openPopup('filePopup');
     }
     closePopup() {
-        document.getElementById('filePopup').classList.remove('active');
-        document.body.classList.remove('popup-open');
+        Utils.closePopup('filePopup');
     }
 
     getCurrentSessionLines() {
@@ -732,12 +1009,12 @@ class AshReXcueWebUI {
             if (this.currentSessionIndex !== -1) {
                 const meta = this.bootSessions[this.currentSessionIndex]?.meta;
                 if (meta && !meta.hasEnd) {
-                    statusHtml = ' <span style="color: var(--yellow); font-size: 10px; font-weight: normal; margin-left: 5px;">(Incomplete/Running)</span>';
+                    statusHtml = ' <span class="status-note">(Incomplete/Running)</span>';
                 }
             } else if (this.bootSessions.length > 0) {
                 const lastSession = this.bootSessions[this.bootSessions.length - 1];
                 if (lastSession && !lastSession.meta.hasEnd) {
-                    statusHtml = ' <span style="color: var(--yellow); font-size: 10px; font-weight: normal; margin-left: 5px;">(Latest: Running)</span>';
+                    statusHtml = ' <span class="status-note">(Latest: Running)</span>';
                 }
             }
             if (fileNameEl) fileNameEl.innerHTML = `${this.currentLogFile}${statusHtml}`;
@@ -869,7 +1146,7 @@ class AshReXcueWebUI {
             }
 
             const isClean = meta.hasEnd;
-            const badge = isClean ? '' : '<div class="live-dot" style="color: var(--yellow);" title="Incomplete/Running"></div>';
+            const badge = isClean ? '' : '<div class="live-dot text-yellow" title="Incomplete/Running"></div>';
 
             const sessionItem = document.createElement('div');
             sessionItem.className = 'file-item';
@@ -922,7 +1199,7 @@ class AshReXcueWebUI {
         const terminalOutput = document.getElementById('terminalOutput');
         terminalOutput.classList.add('clearing');
         setTimeout(() => {
-            terminalOutput.innerHTML = '<div class="empty-state"><div style="width: 40px; height: 40px; opacity: 0.5;"><i data-icon="fabLogs"></i></div><h3>AshReXcue V2.7</h3><p>Cleared</p></div>';
+            terminalOutput.innerHTML = '<div class="empty-state"><div class="empty-icon"><i data-icon="fabLogs"></i></div><h3>AshReXcue V2.7</h3><p>Cleared</p></div>';
             terminalOutput.classList.remove('clearing');
             this.clearSearch();
             this.originalLines = [];

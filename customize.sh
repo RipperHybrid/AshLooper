@@ -7,8 +7,7 @@ MODEL=$(getprop ro.product.model)
 BRAND=$(getprop ro.product.brand)
 ROOT_VERSION=$(get_root_version)
 ZIP_BIN="$MODPATH/bin/zip"
-[ -f "$ZIP_BIN" ] && chmod 755 "$ZIP_BIN"
-[ -f "$JQ" ] && chmod 755 "$JQ"
+check_bins jq zip || { ui_print "! Missing binary: $MISSING_BIN. Incomplete zip."; abort "! Aborting install"; }
 
 ui_print ""
 ui_print "  ================================"
@@ -22,6 +21,7 @@ ui_print "  Root   : $method ($ROOT_VERSION)"
 ui_print "  ================================"
 ui_print ""
 ui_print "  Initializing..."
+ui_print "  Binaries OK: $FOUND_BINS"
 sleep 0.5
 
 ui_print ""
@@ -77,10 +77,10 @@ ui_print "  [Vol+ = YES | Vol- = NO]"
 chooseport 8
 key=$?
 if [ "$key" -eq 0 ]; then
-  monitor_scripts="true"
+  monitor_scripts="On"
   ui_print "  ✔ Boot scripts (.d): ENABLED"
 else
-  monitor_scripts="false"
+  monitor_scripts="Off"
   ui_print "  ✘ Boot scripts (.d): DISABLED"
 fi
 modify_prop -s "monitor_scripts" "$monitor_scripts"
@@ -92,10 +92,10 @@ ui_print "  [Vol+ = YES | Vol- = NO]"
 chooseport 8
 key=$?
 if [ "$key" -eq 0 ]; then
-  stability_check="true"
+  stability_check="On"
   ui_print "  ✔ Extra stability checks: ENABLED"
 else
-  stability_check="false"
+  stability_check="Off"
   ui_print "  ✘ Extra stability checks: DISABLED"
 fi
 modify_prop -s "extra_stability" "$stability_check"
@@ -277,7 +277,7 @@ restored_config="defaults"
 if [ -f "$mdir/AshLooper/settings.prop" ]; then
   oldlog=$(get_prop log "$mdir/AshLooper/settings.prop")
   ui_print ""
-  ui_print "  ◆ Previous installation detected."
+  ui_print "⇋ Previous installation detected."
   ui_print ""
   ui_print "◆ Restore old whitelist & stability time?"
   ui_print ""
@@ -287,7 +287,12 @@ if [ -f "$mdir/AshLooper/settings.prop" ]; then
   if [ "$key" -eq 0 ]; then
     [ -n "$oldlog" ] && modify_prop -s "log" "$oldlog" "$MODPATH/settings.prop"
     oldlist=$(get_prop whitelist "$mdir/AshLooper/settings.prop") && modify_prop -s "whitelist" "$oldlist" "$MODPATH/settings.prop"
-    old_stab=$(get_prop stability_time "$mdir/AshLooper/settings.prop") && modify_prop -s "stability_time" "$old_stab" "$MODPATH/settings.prop"
+    old_stab=$(get_prop stability_time "$mdir/AshLooper/settings.prop")
+    if in_range "$old_stab" "$STAB_MIN" "$STAB_MAX"; then
+      modify_prop -s "stability_time" "$old_stab" "$MODPATH/settings.prop"
+    else
+      ui_print "  ! Old stability time out of range, using default"
+    fi
     restored_config="restored"
     ui_print "  ✔ Previous config restored"
   else
@@ -298,15 +303,16 @@ fi
 ui_print ""
 ui_print "- Writing config..."
 
-stability_display=$([ "$stability_check" = "true" ] && echo "On" || echo "Off")
-scripts_display=$([ "$monitor_scripts" = "true" ] && echo "On" || echo "Off")
-modify_prop -s "description" "🔰 [Mode $smode | Threshold: $selected_threshold boots | Stability Check: $stability_display | Scripts (.d): $scripts_display] Your safety net for bad modules. Catches boot loops, disables the culprits." "$MODPATH/module.prop"
+modify_prop -s "description" "🔄 Update installed. Reboot once to activate the new version settings and protection will refresh after the restart." "$MODPATH/module.prop"
 mkdir -p "$LOG_DIR" || { ui_print "- Error: Failed to create '$LOG_DIR'. Aborting." >&2; exit 1; }
 
 rm -f "$ZIP_BIN"
 
 install_date=$(date '+%Y-%m-%d' 2>/dev/null || echo "unknown")
 modify_prop -s "install_date" "$install_date" "$MODPATH/settings.prop"
+
+scripts_display=$(get_prop "monitor_scripts" "$MODPATH/settings.prop")
+stability_display=$(get_prop "extra_stability" "$MODPATH/settings.prop")
 
 ui_print ""
 ui_print "  ================================"

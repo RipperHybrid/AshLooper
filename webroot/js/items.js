@@ -18,7 +18,6 @@ export class ItemsManager {
         this.touchEndX = 0;
         this.touchStartY = 0;
         this.touchEndY = 0;
-        this.pendingChanges = new Map();
     }
 
     init() {}
@@ -85,14 +84,14 @@ export class ItemsManager {
             container.innerHTML = `
                 <div class="empty-state">
                     <div>
-                        <div class="spinner" style="margin: 0 auto 15px auto;"></div>
-                        <div style="font-family: var(--font-mono); font-size: 0.9em; color: var(--text-2);">Loading items...</div>
+                        <div class="spinner spinner-block"></div>
+                        <div class="loading-text">Loading items...</div>
                     </div>
                 </div>`;
         }
 
         try {
-            const monitorScripts = this.app.moduleInfo.monitor_scripts !== 'false';
+            const monitorScripts = this.app.moduleInfo.monitor_scripts === 'On';
 
             const scriptCmd = `
                 for d in /data/adb/modules/*; do
@@ -211,15 +210,15 @@ export class ItemsManager {
         if (cModules) cModules.textContent = this.items.filter(i => i.kind === 'module').length;
         if (cScripts) cScripts.textContent = this.items.filter(i => i.kind === 'script').length;
 
-        if (this.currentTab === 'scripts' && this.app.moduleInfo.monitor_scripts === 'false') {
+        if (this.currentTab === 'scripts' && this.app.moduleInfo.monitor_scripts !== 'On') {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div style="width: 40px; height: 40px; opacity: 0.5;">
+                    <div class="empty-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
                     </div>
                     <h3>Script Monitoring is Off</h3>
-                    <p style="margin-top: 5px;">Enable script monitoring to manage early & late boot scripts.</p>
-                    <button type="button" class="refresh-btn" id="btn-enable-scripts" style="margin-top: 15px;">Turn On</button>
+                    <p class="mt-5">Enable script monitoring to manage early & late boot scripts.</p>
+                    <button type="button" class="refresh-btn mt-15" id="btn-enable-scripts">Turn On</button>
                 </div>
             `;
             if (footer) footer.textContent = '';
@@ -228,8 +227,8 @@ export class ItemsManager {
             if (btn) {
                 btn.onclick = async () => {
                     Utils.showLoadingSpinner(true);
-                    await this.app.settingsManager.updateSettingProp('monitor_scripts', 'true');
-                    this.app.moduleInfo.monitor_scripts = 'true';
+                    await this.app.settingsManager.updateSettingProp('monitor_scripts', 'On');
+                    this.app.moduleInfo.monitor_scripts = 'On';
                     this.app.settingsManager.updateUI();
                     Utils.logChange('Enabled Script Monitoring');
                     Utils.showLoadingSpinner(false);
@@ -299,7 +298,7 @@ export class ItemsManager {
                     </div>
                 </div>
                 <div class="module-action-compact">
-                    <span class="s-row-value ${finalBadgeClass}" style="margin-right:10px;" id="badge-${this.sanitizeId(item.id)}">${finalBadgeText}</span>
+                    <span class="s-row-value ${finalBadgeClass} mr-10" id="badge-${this.sanitizeId(item.id)}">${finalBadgeText}</span>
                     ${actionsHtml}
                 </div>
             </div>`;
@@ -497,17 +496,5 @@ export class ItemsManager {
             content.querySelector('#confirmModalCancel').addEventListener('click', () => cleanup(false));
             content.querySelector('#confirmModalYes').addEventListener('click', () => cleanup(true));
         });
-    }
-
-    _discard(silent = false) {
-        this.pendingChanges.clear();
-        this.updateUI();
-        if (!silent) {
-            this.app.pill.hide();
-        }
-    }
-
-    async applyChanges(silent = false) {
-        this.pendingChanges.clear();
     }
 }
