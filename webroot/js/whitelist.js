@@ -67,8 +67,8 @@ export class WhitelistManager {
             container.innerHTML = `
                 <div class="empty-state">
                     <div>
-                        <div class="spinner" style="margin: 0 auto 15px auto;"></div>
-                        <div style="font-family: var(--font-mono); font-size: 0.9em; color: var(--text-2);">Loading items...</div>
+                        <div class="spinner spinner-block"></div>
+                        <div class="loading-text">Loading items...</div>
                     </div>
                 </div>`;
         }
@@ -78,7 +78,7 @@ export class WhitelistManager {
             let currentWhitelist = this.app.moduleInfo.whitelist || 'AshLooper';
             currentWhitelist = currentWhitelist.replace(/['"\s]/g, '');
             const whitelistArr = currentWhitelist.split(',').filter(Boolean);
-            const monitorScripts = this.app.moduleInfo.monitor_scripts !== 'false';
+            const monitorScripts = this.app.moduleInfo.monitor_scripts === 'On';
 
             const scriptCmd = `
                 for d in /data/adb/modules/*; do
@@ -92,16 +92,16 @@ export class WhitelistManager {
                     printf "MOD|%s|%s\\n" "$id" "$n"
                 done
                 ${monitorScripts ? `
-                for d in /data/adb/service.d /data/adb/post-mount.d /data/adb/post-fs-data.d; do
+                for d in /data/adb/service.d; do
                     [ -d "$d" ] || continue
-                    pref="svc"; [ "$d" = "/data/adb/post-mount.d" ] && pref="pmd"; [ "$d" = "/data/adb/post-fs-data.d" ] && pref="pfd"
+                    pref="svc"
                     find "$d" -maxdepth 1 -type f 2>/dev/null | while read -r f; do
                         [ ! -x "$f" ] && [ ! -s "$f" ] && continue
                         b="\${f##*/}"
                         printf "SCR|%s|%s\\n" "$pref" "$b"
                     done
                 done
-                for f in /data/adb/ashlooper/*.svc.* /data/adb/ashlooper/*.pmd.* /data/adb/ashlooper/*.pfd.*; do
+                for f in /data/adb/ashlooper/*.svc.*; do
                     [ -f "$f" ] || continue
                     b="\${f##*/}"
                     b_ext="\${b%.*}"
@@ -229,7 +229,7 @@ export class WhitelistManager {
         return id.replace(/[^a-zA-Z0-9_-]/g, '_');
     }
 
-    _discard(silent = false) {
+    discard(silent = false) {
         this.pendingChanges.clear();
         this.updateUI();
         if (!silent) {
@@ -264,6 +264,7 @@ export class WhitelistManager {
 
         try {
             await this.app.settingsManager.updateSettingProp('whitelist', `"${arr.join(',')}"`);
+            await this.app.settingsManager.updateModuleDescription();
             for (const id of added) Utils.logChange(`Added "${id}" to whitelist`);
             for (const id of removed) Utils.logChange(`Removed "${id}" from whitelist`);
 

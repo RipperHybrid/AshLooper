@@ -123,7 +123,7 @@ restore_menu() {
         echo "$count|mod|$id|$name ($id)" >> "$TMP_LIST"
     done
 
-    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
+    if [ "$(get_prop "monitor_scripts")" != "Off" ]; then
         for f in "$ASHLOOPER_DIR"/*.svc.* "$ASHLOOPER_DIR"/*.pmd.* "$ASHLOOPER_DIR"/*.pfd.*; do
             [ -f "$f" ] || continue
             base=$(basename "$f")
@@ -321,8 +321,8 @@ elif [ "$selected_option" -eq 2 ]; then
         fi
     done
 
-    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
-        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+    if [ "$(get_prop "monitor_scripts")" != "Off" ]; then
+        for scandir in "$SERVICE_D:svc"; do
             dpath="${scandir%%:*}"
             prefix="${scandir##*:}"
             [ -d "$dpath" ] || continue
@@ -404,6 +404,7 @@ elif [ "$selected_option" -eq 2 ]; then
             pending_adds=$(echo "$pending_adds" | sed 's/^,//')
             whitelist="$whitelist,$pending_adds"
             modify_prop -s "whitelist" "\"$whitelist\""
+            write_description
             echo ""
             echo "- Updated whitelist: $whitelist"
         else
@@ -512,6 +513,7 @@ elif [ "$selected_option" -eq 3 ]; then
             done
 
             modify_prop -s "whitelist" "\"$new_whitelist\""
+            write_description
             echo ""
             echo "- Updated whitelist: $new_whitelist"
         else

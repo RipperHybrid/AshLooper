@@ -6,7 +6,7 @@ BROWSER_CHECK_EVERY=5
 NO_ACTIVITY_GRACE=30
 
 find_busybox() {
-    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
+    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do
         if [ -f "$candidate" ] && [ -x "$candidate" ]; then
             if "$candidate" true >/dev/null 2>&1; then
                 echo "$candidate"

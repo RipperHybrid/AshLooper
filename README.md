@@ -1,7 +1,7 @@
 # AshReXcue - Bootloop Protector
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="70%" alt="AshLooper Banner">
+  <img src="https://raw.githubusercontent.com/RipperHybrid/AshLooper/Master/.github/resources/banner.png" width="50%" alt="AshLooper Banner">
   <br>
   <img src="https://img.shields.io/badge/Compatible%20with-Magisk%20%7C%20KernelSU%20%7C%20Apatch%20%26%20Forks-blueviolet" alt="Compatibility Badge">
   <br>
@@ -33,7 +33,7 @@
 
 **AshReXcue** (formerly AshLooper) is a sophisticated, open-source boot protection module designed for **Magisk**, **KernelSU**, **APatch**, and their various **Forks**.
 
-Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules and early/late boot scripts too (`service.d`, `post-mount.d`, `post-fs-data.d`). It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors offering a completely local experience with no cumbersome login processes or external dependencies.
+Unlike basic protectors that blindly disable all modules during a bootloop, AshReXcue utilizes **Smart Differential Analysis** to identify and target only the problematic modules and `service.d` boot scripts. It features a fully interactive, locally hosted **WebUI Dashboard** for managing your protection parameters, reviewing boot logs, and configuring system behaviors offering a completely local experience with no cumbersome login processes or external dependencies.
 
 ### 📚 [Read The Full Feature Documentation](.github/resources/feature.md)
 
@@ -46,8 +46,8 @@ Unlike basic protectors that blindly disable all modules during a bootloop, AshR
 
 | Category | Description |
 | :--- | :--- |
-| 🔰 **Smart Detection** | Differential tracking (hash + size + status) detects exactly what changed since the last successful boot to isolate bad modules **and** boot scripts, backed by aggressive `com.android.systemui` crash-loop monitoring (3-strike threshold). |
-| 📜 **Boot Script Guard** | Optionally tracks and protects `service.d`, `post-mount.d`, and `post-fs-data.d` scripts the same way it protects modules isolating offenders into a recovery vault instead of deleting them outright. |
+| 🔰 **Smart Detection** | Differential tracking (hash + size + status) detects exactly what changed since the last successful boot to isolate bad modules **and** boot scripts, backed by aggressive framework process monitoring (3-strike restart threshold). |
+| 📜 **Boot Script Guard** | Optionally tracks and protects `service.d` scripts the same way it protects modules, isolating offenders into a recovery vault instead of deleting them outright. |
 | 💻 **Interactive WebUI** | A self-hosted localhost dashboard (V2.7) featuring a claymorphic/neumorphic dark aesthetic, a unified **Items** control center, a global unsaved-changes tracker, and built-in diagnostics (Activity Log + JSON Viewer). |
 | 🔒 **Secure Environment** | Built-in security measures including strict `/proc/net/tcp` port collision checks, decoupled static `monitor.sh` background tracking, and hash-based local authentication. |
 | ⚙️ **Customizable Logic** | Highly configurable thresholds, dynamic stability timeframes, toggleable extra daemon checks, and intelligent crash-reboot cycling with active state-locks to prevent race conditions. |
@@ -73,7 +73,7 @@ During installation, AshReXcue walks you through an interactive setup so you can
 
 ## 🖥️ Accessing the Dashboard & Action Menu
 
-AshReXcue features an interactive CLI-based **Action Menu** powered by VSKL (Volume & Screen Key Listener). This serves as the central hub for managing the module. From this 5-option menu, you can securely launch the WebUI on localhost, add/remove items from your Whitelist, **restore previously disabled modules/scripts**, or safely exit.
+AshReXcue features an interactive CLI-based **Action Menu** powered by a shared volume-key and touch listener. This serves as the central hub for managing the module. From this 5-option menu, you can securely launch the WebUI on localhost, add/remove items from your Whitelist, **restore previously disabled modules/scripts**, or safely exit.
 
 You can access this menu dynamically based on your root manager:
 

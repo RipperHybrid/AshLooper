@@ -1,14 +1,74 @@
+# AshReXcue settings. Edit only if you know what each value does.
+# Prefer the WebUI Settings tab or the action menu: both validate ranges and rewrite this file safely.
+# A malformed line or an out-of-range value is replaced with its default on next boot.
+# Do not experiment with out-of-bounds values. If you break it, that's on you.
+
+# Mode Guidelines
+# Protection action on loop detection.
+# 1 = disable culprit modules only (safest).
+# 2 = disable culprits + reboot to recovery (nuclear).
+# Allowed: 1, 2. Anything else is fixed to 1.
+
+# Threshold Guidelines
+# Consecutive failed boots before action.
+# Allowed: 1, 2, 3, 4. Anything else is fixed to 2.
+# Set by the installer or the WebUI. Do not set to "none".
+
+# Loops Guidelines
+# Boot loop counter. Managed by the module, do not edit.
+# Max allowed: 10. Anything higher is impossible and reset to 0.
+
+# Disable Guidelines
+# Current protection state. Managed by the module, do not edit.
+# none = no action yet, partial = culprits disabled, full = lockdown active.
+# Any other value is unexpected and reset to none.
+
+# Timeout Guidelines
+# Seconds to wait for boot completion before triggering protection.
+# Allowed range: 1-100. Anything outside is fixed to 60.
+
+# Stability Time Guidelines
+# Seconds the watchdog watches the framework after boot.
+# Allowed range: 45-90. Anything outside is fixed to 60.
+# Lower = faster rescue, more false positives on slow devices.
+# Higher = more tolerant, slower to catch a real post-boot loop.
+
+# Log Guidelines
+# Log session counter. Managed by the module, do not edit.
+
+# Install Date Guidelines
+# Install date. Managed by the module, do not edit.
+
+# Boot Markers Guidelines
+# Boot state markers. Managed by the module, do not edit.
+
+# Extra Stability Guidelines
+# Watch servicemanager and vold by PID in addition to the core framework.
+# Allowed: On, Off. Anything else is fixed to Off.
+# Monitor Scripts Guidelines
+# Track service.d scripts alongside modules.
+# Note: post-mount.d and post-fs-data.d scripts are visible in the WebUI for manual
+# management, but cannot be caught automatically if they cause a bootloop, as they
+# run before this module's own boot scripts execute.
+# Allowed: On, Off. Anything else is fixed to Off.
+
+# Whitelist Guidelines
+# Comma-separated list of modules/scripts never disabled. Always contains AshLooper.
+# Format: "AshLooper,other.module,svc:script.sh".
+# Do not edit by hand, use the WebUI Whitelist tab or the action menu.
+
+# Props
 mode=none
+threshold=none
 loops=0
 disable=none
 timeout=60
-threshold=none
-stability_time=45
+stability_time=60
 log=1-0
 install_date=none
 boot=none
 boot_id=none
 kernel_uptime=none
-extra_stability=false
-monitor_scripts=false
+extra_stability=Off
+monitor_scripts=Off
 whitelist="AshLooper"

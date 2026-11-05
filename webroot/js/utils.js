@@ -1,11 +1,11 @@
-import { Config } from './main.js';
+import { Config } from './config.js';
 
 export class ChangesPill {
     constructor({ onSave, onDiscard } = {}) {
         this.onSave = onSave;
         this.onDiscard = onDiscard;
         this.minimized = false;
-        this._bound = false;
+        this.isBound = false;
         this.autoCloseTimer = null;
 
         this.pill = document.getElementById('changes-pill');
@@ -32,9 +32,9 @@ export class ChangesPill {
         }
     }
 
-    _bind() {
-        if (this._bound) return;
-        this._bound = true;
+    bindEvents() {
+        if (this.isBound) return;
+        this.isBound = true;
 
         if (this.miniEl) this.miniEl.addEventListener('click', () => this.expand());
         if (this.labelEl) this.labelEl.addEventListener('click', () => this.minimize());
@@ -55,7 +55,7 @@ export class ChangesPill {
     update(count, { onSave, onDiscard, mode } = {}) {
         if (onSave) this.onSave = onSave;
         if (onDiscard) this.onDiscard = onDiscard;
-        this._bind();
+        this.bindEvents();
 
         if (mode === 'remove') {
             this.saveBtn.classList.add('btn-danger');
@@ -72,7 +72,7 @@ export class ChangesPill {
             if (this.miniCountEl) this.miniCountEl.textContent = count + ' Unsaved';
             if (this.pill) {
                 this.pill.classList.add('visible');
-                this._setMinimized(this.minimized);
+                this.applyMinimized(this.minimized);
                 if (!this.minimized) this.startAutoClose();
             }
         } else {
@@ -96,13 +96,13 @@ export class ChangesPill {
 
     expand() {
         this.minimized = false;
-        this._setMinimized(false);
+        this.applyMinimized(false);
         this.startAutoClose();
     }
 
     minimize() {
         this.minimized = true;
-        this._setMinimized(true);
+        this.applyMinimized(true);
         this.clearAutoClose();
     }
 
@@ -119,7 +119,7 @@ export class ChangesPill {
         }
     }
 
-    _setMinimized(val) {
+    applyMinimized(val) {
         if (this.pill) this.pill.classList.toggle('minimized', val);
     }
 }
@@ -228,7 +228,12 @@ export class Utils {
             else if (command.includes('>') || command.includes('>>')) text = 'written';
             else text = 'success';
         } else if (!error) {
-            if (command.includes('ls -1')) text = `Listed ${text.trim().split('\n').length} items`;
+            if (/^MOD\|/m.test(text) || /^SCR\|/m.test(text)) {
+                const mods = (text.match(/^MOD\|/gm) || []).length;
+                const scrs = (text.match(/^SCR\|/gm) || []).length;
+                text = `Scanned ${mods} modules, ${scrs} scripts`;
+            }
+            else if (command.includes('ls -1')) text = `Listed ${text.trim().split('\n').length} items`;
             else if (command.includes('find ')) text = `Found ${text.trim().split('\n').length} items`;
             else if (command.includes('cat ') && command.includes('module.prop')) {
                 const m = text.match(/version=([^\n]+)/);
@@ -236,7 +241,7 @@ export class Utils {
                 text = ver ? `Read module.prop (v${ver})` : `Read module.prop`;
             }
             else if (command.includes('cat ') && command.includes('settings.prop')) text = `Read settings.prop`;
-            else if (command.includes('[ -f')) text = text.trim() === '1' ? 'Exists (1)' : 'Not found (0)';
+            else if (command.includes('[ -f') && !command.includes('for d in')) text = text.trim() === '1' ? 'Exists (1)' : 'Not found (0)';
         }
 
         if (text.length > 200) {
@@ -256,14 +261,6 @@ export class Utils {
         if (this.commandHistory.length > 500) this.commandHistory.shift();
     }
 
-    static async loadChangeLog() {
-        return this.commandHistory;
-    }
-
-    static async clearChangeLog() {
-        this.commandHistory = [];
-    }
-
     static ksuExec(command) {
         this.lastActivityTime = Date.now();
         if (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') {
@@ -273,7 +270,7 @@ export class Utils {
                     delete window[callbackName];
                     const isError = errno !== 0;
                     const errorMsg = isError ? (stderr || `Error ${errno}`) : null;
-                    const isSpamRead = /^(ls |cat |find |grep |base64 |\[ -f )\b/.test(command) && !command.includes('>>') && !command.includes('for d in');
+                    const isSpamRead = /^(ls|cat|find|grep|base64|\[ -f)\b/.test(command) && !command.includes('>>') && !command.includes('for d in');
 
                     if (!isSpamRead || isError) {
                         this.commandHistory.push({
@@ -310,10 +307,10 @@ export class Utils {
                     try { data = JSON.parse(responseText); }
                     catch (e) { throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`); }
 
-                    const stdout = (data.stdout || "").replace(/\\n/g, '\n');
+                    const stdout = data.stdout || "";
                     const isError = data.code !== 0;
                     const errorMsg = isError ? (data.stderr || data.stdout || "Command failed") : null;
-                    const isSpamRead = /^(ls |cat |find |grep |base64 |\[ -f )\b/.test(command) && !command.includes('>>') && !command.includes('for d in');
+                    const isSpamRead = /^(ls|cat|find|grep|base64|\[ -f)\b/.test(command) && !command.includes('>>') && !command.includes('for d in');
 
                     if (!isSpamRead || isError) {
                         this.commandHistory.push({
@@ -346,19 +343,75 @@ export class Utils {
         }
     }
 
-    static async getModuleProps(moduleId) {
+    static ksuExecTimeout(command, ms = 15000) {
+        return Promise.race([
+            this.ksuExec(command),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Command timed out')), ms)
+            )
+        ]);
+    }
+
+    static nextFrame() {
+        return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    static openPopup(id) {
+        const popup = document.getElementById(id);
+        if (!popup) return null;
+        document.body.classList.add('popup-open');
+        popup.classList.add('active');
+        return popup;
+    }
+
+    static closePopup(id) {
+        const popup = document.getElementById(id);
+        if (popup) popup.classList.remove('active');
+        if (!document.querySelector('.popup-overlay.active')) {
+            document.body.classList.remove('popup-open');
+        }
+    }
+
+    static bindPopupClose(id, closeBtnId) {
+        const popup = document.getElementById(id);
+        const closeBtn = document.getElementById(closeBtnId);
+        if (closeBtn) closeBtn.onclick = () => this.closePopup(id);
+        if (popup) popup.onclick = (e) => { if (e.target === popup) this.closePopup(id); };
+    }
+
+    static getBusyboxCmd() {
+        const candidates = Config.rootManagers.map(m => m.busybox).join(' ');
+        return `bb=$(for c in ${candidates}; do [ -x "$c" ] && echo "$c" && break; done)`;
+    }
+
+    static isSafeUrl(url) {
+        return /^https:\/\/[A-Za-z0-9._~:\/?=&%+-]+$/.test(String(url || ''));
+    }
+
+    static sanitizeFileName(name) {
+        const clean = String(name || '').replace(/[^A-Za-z0-9._-]/g, '_');
+        return clean || `AshReXcue_Update_${Date.now()}.zip`;
+    }
+
+    static getUpdateFileName(url, version) {
+        let name = '';
         try {
-            const propFile = `/data/adb/modules/${moduleId}/module.prop`;
-            const result = await this.ksuExec(`cat "${propFile}" 2>/dev/null`);
-            const props = {};
-            result.split('\n').forEach(line => {
-                const idx = line.indexOf('=');
-                if (idx !== -1) {
-                    props[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-                }
-            });
-            return props;
-        } catch { return {}; }
+            name = decodeURIComponent(String(url || '').split('#')[0].split('?')[0].split('/').pop() || '');
+        } catch (e) {
+            name = '';
+        }
+        name = this.sanitizeFileName(name).replace(/^\.+/, '');
+        if (!/\.zip$/i.test(name)) {
+            name = `AshReXcue-${this.sanitizeFileName(version || Date.now())}.zip`;
+        }
+        return name;
+    }
+
+    static buildInstallCommand(zipPath) {
+        const branches = Config.rootManagers.map((m, i) =>
+            `${i === 0 ? 'if' : 'elif'} [ -x "${m.bin}" ]; then "${m.bin}" ${m.installArgs} "${zipPath}"`
+        ).join('; ');
+        return `${branches}; else echo "NO_ROOT_MANAGER"; exit 1; fi`;
     }
 
     static showToast(message, type = 'info', duration = 3000) {
@@ -367,6 +420,15 @@ export class Utils {
             container = document.createElement('div');
             container.id = 'toast-container';
             document.body.appendChild(container);
+        }
+        const MAX_TOASTS = 3;
+        while (container.children.length >= MAX_TOASTS) {
+            const oldest = container.firstElementChild;
+            if (!oldest) break;
+            oldest.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => { if (oldest.parentNode) oldest.remove(); }, 300);
+            container.removeChild(oldest);
+            break;
         }
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;

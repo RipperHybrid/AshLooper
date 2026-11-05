@@ -1,5 +1,5 @@
 import { Utils } from './utils.js';
-import { Config } from './main.js';
+import { Config } from './config.js';
 
 export class SettingsManager {
     constructor(mainInstance) {
@@ -11,21 +11,49 @@ export class SettingsManager {
             'boot_id', 'kernel_uptime'
         ];
         this.pendingChanges = {};
+        this.sanitized = false;
+        this.repairing = false;
     }
 
-    async loadModuleData() {
+    loadModuleData() {
+        if (this.loadPromise) return this.loadPromise;
+        this.loadPromise = this.fetchModuleData().finally(() => { this.loadPromise = null; });
+        return this.loadPromise;
+    }
+
+    async fetchModuleData() {
         this.app.moduleInfo = {};
+        this.settingsRead = false;
         try {
             const modContent = await Utils.ksuExec(`cat "${Config.modulePropPath}"`);
             this.parsePropContent(modContent);
             try {
                 const rawContent = await Utils.ksuExec(`cat "${Config.settingsPropPath}"`);
                 this.parsePropContent(rawContent);
+                this.settingsRead = true;
                 if (this.detectCorruption(rawContent)) await this.repairSettingsFile();
             } catch (e) {
-                await this.repairSettingsFile();
+                Utils.updateConsole(`Settings load failed: ${e.message}`, 'warning');
             }
         } catch (error) {}
+    }
+
+    async sanitizeLoadedValues() {
+        if (this.sanitized) return;
+        if (!this.settingsRead) return;
+        this.sanitized = true;
+
+        const fixes = this.clampLoadedValues();
+        const keys = Object.keys(fixes);
+        if (keys.length > 0) {
+            for (const k of keys) {
+                await this.updateSettingProp(k, fixes[k]);
+                Utils.updateConsole(`Warning sanitized ${k} to ${fixes[k]}`, 'warning');
+            }
+            await this.updateModuleDescription();
+            Utils.updateConsole(`Settings sanitized. Turns out reading the comments is free. Try it next time.`, 'warning');
+            Utils.showToast(`Sanitized ${keys.length} invalid setting(s)`, 'warning');
+        }
     }
 
     detectCorruption(content) {
@@ -44,10 +72,16 @@ export class SettingsManager {
     }
 
     async repairSettingsFile() {
-        for (const key of this.knownKeys) {
-            if (this.app.moduleInfo[key] !== undefined && key !== 'version' && key !== 'name' && key !== 'versionCode' && key !== 'author' && key !== 'id') {
-                await this.updateSettingProp(key, this.app.moduleInfo[key]);
+        if (this.repairing) return;
+        this.repairing = true;
+        try {
+            for (const key of this.knownKeys) {
+                if (this.app.moduleInfo[key] !== undefined && key !== 'version' && key !== 'name' && key !== 'versionCode' && key !== 'author' && key !== 'id') {
+                    await this.updateSettingProp(key, this.app.moduleInfo[key]);
+                }
             }
+        } finally {
+            this.repairing = false;
         }
     }
 
@@ -67,12 +101,29 @@ export class SettingsManager {
 
     cleanValue(key, rawValue) {
         if (['whitelist', 'log', 'disable', 'mode', 'install_date', 'name', 'versionCode', 'author', 'id', 'version', 'boot'].includes(key)) return rawValue;
-        if (['timeout', 'threshold', 'stability_time'].includes(key)) {
+        if (['timeout', 'threshold', 'stability_time', 'loops'].includes(key)) {
             const num = parseInt(rawValue.replace(/[^0-9-]/g, ''));
             return isNaN(num) ? rawValue : num.toString();
         }
-        if (key === 'extra_stability' || key === 'monitor_scripts') return rawValue.toLowerCase().includes('false') ? 'false' : 'true';
         return rawValue;
+    }
+
+    clampLoadedValues() {
+        const i = this.app.moduleInfo;
+        const fixes = {};
+        if (i.mode !== '1' && i.mode !== '2') { fixes.mode = '1'; i.mode = '1'; }
+        if (!['1','2','3','4'].includes(i.threshold)) { fixes.threshold = '2'; i.threshold = '2'; }
+        const to = parseInt(i.timeout);
+        if (isNaN(to) || to < 1 || to > 100) { fixes.timeout = '60'; i.timeout = '60'; }
+        const st = parseInt(i.stability_time);
+        if (isNaN(st) || st < 45 || st > 90) { fixes.stability_time = '60'; i.stability_time = '60'; }
+        if (i.extra_stability !== 'On' && i.extra_stability !== 'Off') { fixes.extra_stability = 'Off'; i.extra_stability = 'Off'; }
+        if (i.monitor_scripts !== 'On' && i.monitor_scripts !== 'Off') { fixes.monitor_scripts = 'Off'; i.monitor_scripts = 'Off'; }
+        if (!['none','partial','full'].includes(i.disable)) { fixes.disable = 'none'; i.disable = 'none'; }
+        const lp = parseInt(i.loops);
+        if (isNaN(lp) || lp < 0 || lp > 10) { fixes.loops = '0'; i.loops = '0'; }
+        if (!/^\d+-\d+$/.test(i.log || '')) { fixes.log = '1-0'; i.log = '1-0'; }
+        return fixes;
     }
 
     async loadSettingsTab() {
@@ -84,9 +135,14 @@ export class SettingsManager {
     getOriginal(key) {
         const info = this.app.moduleInfo;
         if (key === 'timeout') return (parseInt(info.timeout) || 60).toString();
-        if (key === 'stability_time') return (parseInt(info.stability_time) || 80).toString();
-        if (key === 'threshold') return (parseInt(info.threshold) || 1).toString();
-        if (key === 'extra_stability' || key === 'monitor_scripts') return info[key] !== 'false' ? 'true' : 'false';
+        if (key === 'stability_time') {
+            let v = parseInt(info.stability_time);
+            if (isNaN(v)) v = 60;
+            v = Math.max(45, Math.min(90, v));
+            return v.toString();
+        }
+        if (key === 'threshold') return (parseInt(info.threshold) || 2).toString();
+        if (key === 'extra_stability' || key === 'monitor_scripts') return info[key] === 'On' ? 'On' : 'Off';
         if (key === 'mode') return (info.mode === '1' || info.mode === '2') ? info.mode : '1';
         return info[key];
     }
@@ -100,7 +156,7 @@ export class SettingsManager {
                 if (parseInt(val) > parseInt(orig)) hasAdd = true;
                 else if (parseInt(val) < parseInt(orig)) hasRemove = true;
             } else if (key === 'extra_stability' || key === 'monitor_scripts') {
-                if (val === 'true') hasAdd = true;
+                if (val === 'On') hasAdd = true;
                 else hasRemove = true;
             } else if (key === 'mode') {
                 if (val === '2') hasAdd = true;
@@ -138,10 +194,10 @@ export class SettingsManager {
         if (modeTrigger) modeTrigger.textContent = modeVal === '1' ? '1 (DM)' : '2 (DMR)';
 
         const t = parseInt(this.pendingChanges.timeout !== undefined ? this.pendingChanges.timeout : (info.timeout || 60));
-        const s = parseInt(this.pendingChanges.stability_time !== undefined ? this.pendingChanges.stability_time : (info.stability_time || 80));
-        const th = parseInt(this.pendingChanges.threshold !== undefined ? this.pendingChanges.threshold : (info.threshold || 1));
-        const extra = this.pendingChanges.extra_stability !== undefined ? this.pendingChanges.extra_stability : (info.extra_stability === 'true' ? 'true' : 'false');
-        const scripts = this.pendingChanges.monitor_scripts !== undefined ? this.pendingChanges.monitor_scripts : (info.monitor_scripts !== 'false' ? 'true' : 'false');
+        const s = parseInt(this.pendingChanges.stability_time !== undefined ? this.pendingChanges.stability_time : (info.stability_time || 60));
+        const th = parseInt(this.pendingChanges.threshold !== undefined ? this.pendingChanges.threshold : (info.threshold || 2));
+        const extra = this.pendingChanges.extra_stability !== undefined ? this.pendingChanges.extra_stability : (info.extra_stability === 'On' ? 'On' : 'Off');
+        const scripts = this.pendingChanges.monitor_scripts !== undefined ? this.pendingChanges.monitor_scripts : (info.monitor_scripts === 'On' ? 'On' : 'Off');
 
         const eValTimeout = document.getElementById('s-val-timeout');
         const eValStability = document.getElementById('s-val-stability');
@@ -154,8 +210,8 @@ export class SettingsManager {
         if (eValStability) eValStability.textContent = s + 's';
         if (eNumThreshold) eNumThreshold.textContent = th;
         if (eDTimeout) eDTimeout.textContent = `Max wait: ${Math.max(1, t - 10)}—100s`;
-        if (eTogExtra) eTogExtra.checked = extra === 'true';
-        if (eTogScripts) eTogScripts.checked = scripts === 'true';
+        if (eTogExtra) eTogExtra.checked = extra === 'On';
+        if (eTogScripts) eTogScripts.checked = scripts === 'On';
 
         this.refreshButtonStates(t, s, th);
     }
@@ -251,8 +307,8 @@ export class SettingsManager {
         const eThup = document.getElementById('s-thresh-up');
         if (eTdn) eTdn.disabled = t <= minT;
         if (eTup) eTup.disabled = t >= 100;
-        if (eSdn) eSdn.disabled = s <= 35;
-        if (eSup) eSup.disabled = s >= 120;
+        if (eSdn) eSdn.disabled = s <= 45;
+        if (eSup) eSup.disabled = s >= 90;
         if (eThdn) eThdn.disabled = th <= 1;
         if (eThup) eThup.disabled = th >= 4;
     }
@@ -277,7 +333,7 @@ export class SettingsManager {
             const eTh = document.getElementById('s-num-threshold');
             this.refreshButtonStates(
                 key === 'timeout' ? next : parseInt(eT ? eT.textContent : 60),
-                key === 'stability_time' ? next : parseInt(eS ? eS.textContent : 80),
+                key === 'stability_time' ? next : parseInt(eS ? eS.textContent : 60),
                 key === 'threshold' ? next : parseInt(eTh ? eTh.textContent : 1)
             );
             markChange(key, next.toString());
@@ -326,8 +382,8 @@ export class SettingsManager {
             });
         }
 
-        if (stabUpBtn) stabUpBtn.onclick = () => { if (!stabLongPress) handleStep('stability', 'stability_time', 35, 120, stabilityStep); };
-        if (stabDnBtn) stabDnBtn.onclick = () => { if (!stabLongPress) handleStep('stability', 'stability_time', 35, 120, -stabilityStep); };
+        if (stabUpBtn) stabUpBtn.onclick = () => { if (!stabLongPress) handleStep('stability', 'stability_time', 45, 90, stabilityStep); };
+        if (stabDnBtn) stabDnBtn.onclick = () => { if (!stabLongPress) handleStep('stability', 'stability_time', 45, 90, -stabilityStep); };
 
         const threshUpBtn = document.getElementById('s-thresh-up');
         const threshDnBtn = document.getElementById('s-thresh-dn');
@@ -358,12 +414,9 @@ export class SettingsManager {
         };
 
         let threshPressTimer;
-        let threshLongPress = false;
 
         const threshStartPress = () => {
-            threshLongPress = false;
             threshPressTimer = setTimeout(() => {
-                threshLongPress = true;
                 updateThreshBubbleActive();
                 threshBubble.classList.add('visible');
                 if ('vibrate' in navigator) navigator.vibrate(50);
@@ -391,7 +444,7 @@ export class SettingsManager {
                 const eS = document.getElementById('s-val-stability');
                 this.refreshButtonStates(
                     parseInt(eT?.textContent) || 60,
-                    parseInt(eS?.textContent) || 80,
+                    parseInt(eS?.textContent) || 60,
                     val
                 );
                 markChange('threshold', val.toString());
@@ -418,8 +471,8 @@ export class SettingsManager {
 
         if (timeoutUp) timeoutUp.onclick = () => handleStep('timeout', 'timeout', 1, 100, 1);
         if (timeoutDn) timeoutDn.onclick = () => handleStep('timeout', 'timeout', 1, 100, -1);
-        if (togExtra) togExtra.onchange = (e) => markChange('extra_stability', e.target.checked ? 'true' : 'false');
-        if (togScripts) togScripts.onchange = (e) => markChange('monitor_scripts', e.target.checked ? 'true' : 'false');
+        if (togExtra) togExtra.onchange = (e) => markChange('extra_stability', e.target.checked ? 'On' : 'Off');
+        if (togScripts) togScripts.onchange = (e) => markChange('monitor_scripts', e.target.checked ? 'On' : 'Off');
 
         const modeTrigger = document.getElementById('s-sel-mode-trigger');
         const modePopup = document.getElementById('modePopup');
@@ -455,7 +508,7 @@ export class SettingsManager {
         }
     }
 
-    _discard(silent = false) {
+    discard(silent = false) {
         this.pendingChanges = {};
         this.updateUI();
         if (!silent) {
@@ -464,8 +517,26 @@ export class SettingsManager {
         }
     }
 
-    async _save(silent = false) {
+    async save(silent = false) {
         if (!silent) Utils.showLoadingSpinner(true);
+
+        for (const key of Object.keys(this.pendingChanges)) {
+            const v = this.pendingChanges[key];
+            if (key === 'timeout') {
+                const n = parseInt(v);
+                if (isNaN(n) || n < 1 || n > 100) this.pendingChanges[key] = '60';
+            } else if (key === 'stability_time') {
+                const n = parseInt(v);
+                if (isNaN(n) || n < 45 || n > 90) this.pendingChanges[key] = '60';
+            } else if (key === 'threshold') {
+                const n = parseInt(v);
+                if (isNaN(n) || n < 1 || n > 4) this.pendingChanges[key] = '2';
+            } else if (key === 'mode') {
+                if (v !== '1' && v !== '2') this.pendingChanges[key] = '1';
+            } else if (key === 'extra_stability' || key === 'monitor_scripts') {
+                if (v !== 'On' && v !== 'Off') this.pendingChanges[key] = 'Off';
+            }
+        }
 
         const labels = {
             mode: 'Protection mode',
@@ -478,14 +549,16 @@ export class SettingsManager {
         const formatVal = (key, val) => {
             if (key === 'mode') return val === '1' ? 'DM' : val === '2' ? 'DMR' : val;
             if (key === 'timeout' || key === 'stability_time') return `${val}s`;
-            if (key === 'extra_stability' || key === 'monitor_scripts') return val === 'true' ? 'On' : 'Off';
+            if (key === 'extra_stability' || key === 'monitor_scripts') return val;
             return val;
         };
         const diffs = Object.keys(this.pendingChanges)
             .filter(key => labels[key])
             .map(key => `${labels[key]}: ${formatVal(key, this.app.moduleInfo[key])} → ${formatVal(key, this.pendingChanges[key])}`);
 
-        await Promise.all(Object.keys(this.pendingChanges).map(k => this.updateSettingProp(k, this.pendingChanges[k])));
+        for (const k of Object.keys(this.pendingChanges)) {
+            await this.updateSettingProp(k, this.pendingChanges[k]);
+        }
         this.pendingChanges = {};
         await this.updateModuleDescription();
         this.updateUI();
@@ -502,7 +575,8 @@ export class SettingsManager {
     }
 
     async updateSettingProp(key, value) {
-        const script = `if grep -q "^${key}=" "${Config.settingsPropPath}"; then sed -i 's~^${key}=.*~${key}=${value}~' "${Config.settingsPropPath}"; else echo '${key}=${value}' >> "${Config.settingsPropPath}"; fi`;
+        const escVal = String(value).replace(/[&~]/g, '\\$&');
+        const script = `f="${Config.settingsPropPath}"; if grep -qE "^[[:space:]]*${key}=" "$f"; then sed -i -E 's~^[[:space:]]*${key}=.*~${key}=${escVal}~' "$f"; else echo '${key}=${value}' >> "$f"; fi`;
         await Utils.ksuExec(script);
         this.app.moduleInfo[key] = value;
     }
@@ -513,11 +587,43 @@ export class SettingsManager {
         if (smode === '1') smode = 'DM';
         else if (smode === '2') smode = 'DMR';
         else smode = 'DM';
-        const threshold = info.threshold || '1';
-        const stability = info.extra_stability === 'true' ? 'On' : 'Off';
-        const scripts = info.monitor_scripts !== 'false' ? 'On' : 'Off';
-        const newDesc = `🔰 [Mode ${smode} | Threshold: ${threshold} boots | Stability Check: ${stability} | Scripts (.d): ${scripts}] Your safety net for bad modules. Catches boot loops, disables the culprits.`;
-        const script = `if grep -q "^description=" "${Config.modulePropPath}"; then sed -i 's~^description=.*~description=${newDesc}~' "${Config.modulePropPath}"; else echo 'description=${newDesc}' >> "${Config.modulePropPath}"; fi`;
+        let threshold = String(info.threshold ?? '');
+        let timeout = String(info.timeout ?? '');
+        let stabilityTime = String(info.stability_time ?? '');
+        let scripts = info.monitor_scripts === 'On' ? 'On' : 'Off';
+        let whitelist = String(info.whitelist ?? '');
+        try {
+            const fresh = await Utils.ksuExec(`cat "${Config.settingsPropPath}" 2>/dev/null`);
+            fresh.split('\n').forEach(line => {
+                const idx = line.indexOf('=');
+                if (idx === -1) return;
+                const k = line.substring(0, idx).trim();
+                const v = line.substring(idx + 1).trim();
+                if (k === 'timeout' && v) timeout = v;
+                else if (k === 'threshold' && v) threshold = v;
+                else if (k === 'mode' && v) smode = v === '2' ? 'DMR' : 'DM';
+                else if (k === 'stability_time') stabilityTime = v;
+                else if (k === 'monitor_scripts') scripts = v === 'On' ? 'On' : 'Off';
+                else if (k === 'whitelist') whitelist = v;
+            });
+        } catch (e) {}
+        const isNum = (s) => /^[0-9]+$/.test(s);
+        const finalThreshold = isNum(threshold) ? threshold : '1';
+        const finalTimeout = isNum(timeout) ? timeout : '60';
+        const bootWord = finalThreshold === '1' ? 'boot' : 'boots';
+        const st = parseInt(stabilityTime, 10);
+        const stabInRange = isNum(stabilityTime) && st >= 45 && st <= 90;
+        const stab = stabInRange ? `Stability: On (${stabilityTime}s)` : `Stability: Off`;
+        const wlItems = whitelist.replace(/[\\'"\s]/g, '').split(',').filter(id => id && id !== 'AshLooper');
+        const wlScr = wlItems.filter(id => /^svc:/.test(id)).length;
+        const wlMod = wlItems.length - wlScr;
+        const wlParts = [];
+        if (wlMod > 0) wlParts.push(`${wlMod} Module`);
+        if (wlScr > 0) wlParts.push(`${wlScr} Script`);
+        const whitelistText = wlParts.length ? wlParts.join(' / ') : 'None';
+        const newDesc = `🔰 Status: Mode ${smode} | Threshold: ${finalThreshold} ${bootWord} | Timeout: ${finalTimeout}s | Scripts (.d): ${scripts} | ${stab} | Whitelist: ${whitelistText}.`;
+        const b64 = btoa(unescape(encodeURIComponent(newDesc)));
+        const script = `desc=$(printf '%s' "${b64}" | base64 -d); propf="${Config.modulePropPath}"; if grep -q "^description=" "$propf"; then grep -v "^description=" "$propf" > "$propf.tmp"; printf 'description=%s\\n' "$desc" >> "$propf.tmp"; mv "$propf.tmp" "$propf"; else printf 'description=%s\\n' "$desc" >> "$propf"; fi`;
         try {
             await Utils.ksuExec(script);
         } catch (error) {

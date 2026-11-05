@@ -4,34 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>AshReXcue</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-logs">
     <div id="toast-container"></div>
     <div id="app">
         <main class="app-content">
-            <div id="page-content" class="page-content">
+            <div class="page-content">
                 <div class="app-header" id="appHeaderBtn">
                     <div class="header-logo">
                         <i data-icon="headerLogo"></i>
                     </div>
-                    <div class="header-info" style="flex: 1;">
+                    <div class="header-info flex-1">
                         <span class="header-name">AshReXcue</span>
-                        <div class="header-status ok" id="island-status">
+
+                        <div class="header-status ok">
                             <span class="live-dot"></span>
-                            <span id="island-status-text">V2.7</span>
+                            <span>V2.7</span>
                         </div>
                     </div>
-                    <button type="button" id="headerRefreshBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2); margin-left: 6px;" title="Refresh">
+                    <button type="button" id="headerRefreshBtn" class="control-btn control-sm ml-6" title="Refresh">
                         <i data-icon="refresh"></i>
                     </button>
-                    <button type="button" id="jsonViewerBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2); margin-left: 6px; margin-right: 6px;">
+                    <button type="button" id="jsonViewerBtn" class="control-btn control-sm ml-6 mr-6">
                         <i data-icon="json"></i>
                     </button>
-                    <button type="button" id="globalHelpBtn" class="control-btn" style="width: 32px; height: 32px; background: var(--bg2);">
+                    <button type="button" id="globalHelpBtn" class="control-btn control-sm">
                         <i data-icon="infoCircle"></i>
                     </button>
                 </div>
@@ -48,15 +47,15 @@
                             <div class="terminal-legend">
                                 <div class="terminal-legend-line"></div>
                                 <div class="terminal-legend-items">
-                                    <div class="terminal-legend-item"><div class="terminal-legend-dot" style="background:#64FFD2;"></div><span style="color:#64FFD2;">Normal</span></div>
-                                    <div class="terminal-legend-item"><div class="terminal-legend-dot" style="background:#B677FF;"></div><span style="color:#B677FF;">Warning</span></div>
-                                    <div class="terminal-legend-item"><div class="terminal-legend-dot" style="background:#ef4444;"></div><span style="color:#ef4444;">Error</span></div>
+                                    <div class="terminal-legend-item legend-ok"><div class="terminal-legend-dot"></div><span>Normal</span></div>
+                                    <div class="terminal-legend-item legend-warn"><div class="terminal-legend-dot"></div><span>Warning</span></div>
+                                    <div class="terminal-legend-item legend-err"><div class="terminal-legend-dot"></div><span>Error</span></div>
                                 </div>
                                 <div class="terminal-legend-line"></div>
                             </div>
                             <div class="terminal-output" id="terminalOutput">
                                 <div class="empty-state">
-                                    <div style="width: 40px; height: 40px; opacity: 0.5;"><i data-icon="fabLogs"></i></div>
+                                    <div class="empty-icon"><i data-icon="fabLogs"></i></div>
                                     <h3>AshReXcue V2.7</h3>
                                     <p>Select a log file to view contents</p>
                                 </div>
@@ -76,13 +75,13 @@
                                 </button>
                             </div>
                         </div>
-                        <div id="modules-content" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        <div class="stack-8" id="modules-content"></div>
                     </div>
                 </div>
                 <div class="tab-content" id="itemsTab">
                     <div class="whitelist-container">
                         <div class="items-search-row">
-                            <div class="filter-tabs" style="flex: 1; margin-bottom: 0;">
+                            <div class="filter-tabs fill-no-mb">
                                 <button class="filter-tab active" data-filter="modules">
                                     Modules <span class="filter-count" id="count-modules">0</span>
                                 </button>
@@ -95,7 +94,7 @@
                             <input type="text" id="items-search" class="search-input" placeholder="Search modules & scripts...">
                             <button type="button" id="items-refresh-btn" class="refresh-btn">Refresh</button>
                         </div>
-                        <div id="items-content" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        <div class="stack-8" id="items-content"></div>
                         <div id="items-footer" class="items-footer"></div>
                     </div>
                 </div>
@@ -133,14 +132,14 @@
                                 <div class="s-row-body"><div class="s-row-label">Boot state</div></div>
                                 <span class="s-row-value" id="v-boot-state">—</span>
                             </div>
-                            <div class="s-row cursor-pointer border-none" id="bootIdRow" style="cursor: pointer;">
+                            <div class="s-row cursor-pointer border-none" id="bootIdRow">
                                 <div class="s-row-icon icon-gray"><i data-icon="bootId"></i></div>
                                 <div class="s-row-body">
                                     <div class="s-row-label">Kernel boot ID</div>
                                     <div class="s-row-sub">Tap to see full ID</div>
                                 </div>
                                 <span class="s-row-value short" id="v-boot-id">—</span>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-3); flex-shrink: 0;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                <svg class="icon-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </div>
                         </div>
                         <div class="s-plane mb-4">
@@ -160,13 +159,13 @@
                                     <button class="spbtn font-num" id="s-timeout-up">+1</button>
                                 </div>
                             </div>
-                            <div class="s-row border-none" style="overflow: visible;">
+                            <div class="s-row border-none overflow-visible">
                                 <div class="s-row-icon icon-green"><i data-icon="stabilityTime"></i></div>
                                 <div class="s-row-body">
                                     <div class="s-row-label">Stability time</div>
                                     <div class="s-row-sub">Hold ± for step size</div>
                                 </div>
-                                <div class="stepper" style="position: relative; overflow: visible;">
+                                <div class="stepper stepper-open">
                                     <button class="spbtn font-num" id="s-stability-dn">-5</button>
                                     <div class="spv" id="s-val-stability">0s</div>
                                     <button class="spbtn font-num" id="s-stability-up">+5</button>
@@ -223,9 +222,17 @@
                         <div class="s-plane mb-4">
                             <div class="s-plane-head">
                                 <div class="s-plane-icon icon-blue"><i data-icon="laptopCode"></i></div>
-                                <div class="s-plane-title">Debug & Diagnostics</div>
+                                <div class="s-plane-title">Advanced</div>
                             </div>
-                            <div class="s-row border-none" id="activityLogBtn">
+                            <div class="s-row cursor-pointer" id="checkUpdateBtn">
+                                <div class="s-row-icon icon-blue"><i data-icon="update"></i></div>
+                                <div class="s-row-body">
+                                    <div class="s-row-label">Check Update</div>
+                                    <div class="s-row-sub">Current version info & new release</div>
+                                </div>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </div>
+                            <div class="s-row border-none cursor-pointer" id="activityLogBtn">
                                 <div class="s-row-icon icon-blue"><i data-icon="laptopCode"></i></div>
                                 <div class="s-row-body">
                                     <div class="s-row-label">Activity Log</div>
@@ -251,7 +258,7 @@
                         Discard
                     </button>
                     <button class="cp-btn cp-btn-save" id="cp-btn-save">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         Save
                     </button>
                 </div>
@@ -260,74 +267,86 @@
         </div>
         <nav class="pill-nav" id="bottom-nav"></nav>
 
-        <div id="globalHelpPopup" class="popup-overlay centered">
-            <div class="popup fixed-height" style="max-width: 400px;">
+                <div id="globalHelpPopup" class="popup-overlay centered">
+            <div class="popup popup-w400">
                 <div class="popup-header">
                     <h3>Guide & Glossary</h3>
                     <button type="button" class="close-popup" id="closeGlobalHelpPopup">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
-                <div class="popup-content" style="padding-bottom: 20px;">
-                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; letter-spacing: 0.5px;">Action Colors</h4>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md); margin-bottom: 8px;">
-                        <div class="s-row-body">
-                            <div class="s-row-label" style="color: var(--accent);">Yellow</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Add to whitelist, enable scripts/modules, or increase settings values.</div>
+                <div class="popup-content guide-content">
+                    <div class="guide-pager" id="guidePager">
+                        <div class="guide-page">
+                            <div class="guide-title">Action Colors</div>
+                            <div class="guide-card">
+                                <span class="guide-swatch swatch-yellow"></span>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label text-accent">Yellow — Additive / Enable</div>
+                                    <div class="guide-card-sub">Adds an item to the whitelist, enables a module or boot script, or increases a numeric setting (timeout, threshold, stability time).</div>
+                                </div>
+                            </div>
+                            <div class="guide-card">
+                                <span class="guide-swatch swatch-red"></span>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label text-red">Red — Remove / Disable</div>
+                                    <div class="guide-card-sub">Removes an item from the whitelist, disables a module or boot script, or decreases a numeric setting.</div>
+                                </div>
+                            </div>
+                            <div class="guide-card">
+                                <span class="guide-swatch swatch-orange"></span>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label text-orange">Orange — Mixed Batch</div>
+                                    <div class="guide-card-sub">Multiple queued changes that combine both additions (enable/whitelist) and removals (disable/unwhitelist) in a single save.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="guide-page">
+                            <div class="guide-title">Item Tags</div>
+                            <div class="guide-card">
+                                <div class="guide-tag-cell"><span class="item-kind-tag kind-mod">MOD</span></div>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label">Magisk / KSU Modules</div>
+                                    <div class="guide-card-sub">Standard root modules loaded by your manager.</div>
+                                </div>
+                            </div>
+                            <div class="guide-card">
+                                <div class="guide-tag-cell"><span class="item-kind-tag kind-svc">SVC</span></div>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label">Service Scripts</div>
+                                    <div class="guide-card-sub">Scripts executed late in the boot process (service.d).</div>
+                                </div>
+                            </div>
+                            <div class="guide-card">
+                                <div class="guide-tag-cell"><span class="item-kind-tag kind-pmd">PMD</span></div>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label">Post-Mount Scripts</div>
+                                    <div class="guide-card-sub">Manual only. Executed early during boot (post-mount.d). Cannot be auto-protected.</div>
+                                </div>
+                            </div>
+                            <div class="guide-card">
+                                <div class="guide-tag-cell"><span class="item-kind-tag kind-pfd">PFD</span></div>
+                                <div class="guide-card-body">
+                                    <div class="guide-card-label">Post-Fs-Data Scripts</div>
+                                    <div class="guide-card-sub">Manual only. Executed early during boot (post-fs-data.d). Cannot be auto-protected.</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md); margin-bottom: 8px;">
-                        <div class="s-row-body">
-                            <div class="s-row-label" style="color: var(--red);">Red</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Remove from whitelist, disable scripts/modules, or decrease settings values.</div>
-                        </div>
-                    </div>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md); margin-bottom: 16px;">
-                        <div class="s-row-body">
-                            <div class="s-row-label" style="color: var(--orange);">Orange</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Queued multiple actions combining both additions and removals.</div>
-                        </div>
-                    </div>
-
-                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; letter-spacing: 0.5px;">Item Tags</h4>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md); margin-bottom: 8px;">
-                        <span class="item-kind-tag kind-mod" style="margin:0 10px 0 0;">MOD</span>
-                        <div class="s-row-body">
-                            <div class="s-row-label">Magisk / KSU Modules</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Standard root modules loaded by your manager.</div>
-                        </div>
-                    </div>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md); margin-bottom: 8px;">
-                        <span class="item-kind-tag kind-svc" style="margin:0 10px 0 0;">SVC</span>
-                        <div class="s-row-body">
-                            <div class="s-row-label">Service Scripts</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Scripts executed late in the boot process (service.d).</div>
-                        </div>
-                    </div>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md); margin-bottom: 8px;">
-                        <span class="item-kind-tag kind-pmd" style="margin:0 10px 0 0;">PMD</span>
-                        <div class="s-row-body">
-                            <div class="s-row-label">Post-Mount Scripts</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Scripts executed early during boot (post-mount.d).</div>
-                        </div>
-                    </div>
-                    <div class="s-row border-none" style="padding: 10px; background: var(--bg2); border-radius: var(--r-md);">
-                        <span class="item-kind-tag kind-pfd" style="margin:0 10px 0 0;">PFD</span>
-                        <div class="s-row-body">
-                            <div class="s-row-label">Post-Fs-Data Scripts</div>
-                            <div class="s-row-sub" style="font-size: 9.5px; line-height: 1.4;">Magisk/APatch early boot scripts (post-fs-data.d).</div>
-                        </div>
+                    <div class="guide-dots" id="guideDots">
+                        <button type="button" class="guide-dot active" data-page="0" aria-label="Action Colors"></button>
+                        <button type="button" class="guide-dot" data-page="1" aria-label="Item Tags"></button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="jsonViewerPopup" class="popup-overlay centered">
-            <div class="popup fixed-height" style="max-width: 480px;">
+<div id="jsonViewerPopup" class="popup-overlay centered">
+            <div class="popup fixed-height popup-w480">
                 <div class="popup-header">
                     <h3>Module JSON</h3>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button type="button" id="jsonCopyBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Copy</button>
+                    <div class="row-8">
+                        <button type="button" id="jsonCopyBtn" class="refresh-btn btn-sm">Copy</button>
                         <button type="button" class="close-popup" id="closeJsonViewer">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
@@ -354,7 +373,7 @@
             </div>
         </div>
         <div id="modePopup" class="popup-overlay">
-            <div class="popup" style="max-width: 400px;">
+            <div class="popup popup-w400">
                 <div class="popup-header">
                     <h3>Protection Mode</h3>
                     <button type="button" class="close-popup" id="closeModePopup">
@@ -374,7 +393,7 @@
             </div>
         </div>
         <div id="moduleInfoPopup" class="popup-overlay">
-            <div class="popup" style="max-width: 400px;">
+            <div class="popup popup-w400">
                 <div class="popup-header">
                     <h3>Module Info</h3>
                     <button type="button" class="close-popup" id="closeModuleInfoPopup">
@@ -406,7 +425,7 @@
             </div>
         </div>
         <div id="bootIdPopup" class="popup-overlay centered">
-            <div class="popup" style="max-width: 420px;">
+            <div class="popup popup-w420">
                 <div class="popup-header">
                     <h3>Kernel Boot ID</h3>
                     <button type="button" class="close-popup" id="closeBootIdPopup">
@@ -414,40 +433,84 @@
                     </button>
                 </div>
                 <div class="popup-content">
-                    <p style="font-size: 11px; color: var(--text-3); margin-bottom: 10px;">Kernel Boot ID</p>
-                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-                        <div style="display: flex; align-items: flex-start; gap: 10px;">
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Recorded</div>
-                                <pre class="json-code" id="bootIdRecorded" style="word-break: break-all; white-space: pre-wrap; font-size: 12px; line-height: 1.5; background: var(--bg2); padding: 12px 14px; border-radius: var(--r-lg); margin: 0;">—</pre>
+                    <p class="hint-text">Kernel Boot ID</p>
+                    <div class="field-stack">
+                        <div class="row-top-10">
+                            <div class="flex-fill">
+                                <div class="field-label">Recorded</div>
+                                <pre class="json-code boot-id-box" id="bootIdRecorded">—</pre>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: flex-start; gap: 10px;">
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Current</div>
-                                <pre class="json-code" id="bootIdCurrent" style="word-break: break-all; white-space: pre-wrap; font-size: 12px; line-height: 1.5; background: var(--bg2); padding: 12px 14px; border-radius: var(--r-lg); margin: 0;">—</pre>
+                        <div class="row-top-10">
+                            <div class="flex-fill">
+                                <div class="field-label">Current</div>
+                                <pre class="json-code boot-id-box" id="bootIdCurrent">—</pre>
                             </div>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                        <button type="button" id="bootIdCopyBtn" class="refresh-btn" style="padding: 10px 18px; font-size: 11px;">Copy Current</button>
+                    <div class="row-end-10">
+                        <button type="button" id="bootIdCopyBtn" class="refresh-btn btn-md">Copy Current</button>
                     </div>
                 </div>
             </div>
         </div>
         <div id="activityLogPopup" class="popup-overlay">
-            <div class="popup" style="max-width: 480px;">
+            <div class="popup popup-w480">
                 <div class="popup-header">
                     <h3>Activity Log</h3>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button type="button" id="activitySaveBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Save</button>
-                        <button type="button" id="activityClearBtn" class="refresh-btn" style="padding: 8px 14px; font-size: 11px;">Clear</button>
+                    <div class="row-8">
+                        <button type="button" id="activitySaveBtn" class="refresh-btn btn-sm">Save</button>
+                        <button type="button" id="activityClearBtn" class="refresh-btn btn-sm">Clear</button>
                         <button type="button" class="close-popup" id="closeActivityLog">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
                 </div>
-                <div class="popup-content" id="activityLogContent" style="padding: 12px 20px;"></div>
+                <div class="popup-content pad-12-20" id="activityLogContent"></div>
+            </div>
+        </div>
+
+        <div id="updatePopup" class="popup-overlay centered">
+            <div class="popup popup-w420">
+                <div class="popup-header">
+                    <h3 class="title-ellipsis" id="updatePopupTitle">Check Update</h3>
+                    <button type="button" class="close-popup" id="closeUpdatePopup">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="popup-content pad-12-20" id="updatePopupContent"></div>
+            </div>
+        </div>
+
+        <div id="installTermPopup" class="popup-overlay centered">
+            <div class="popup popup-w420">
+                <div class="popup-header">
+                    <h3 id="installTermTitle">Installing</h3>
+                    <div class="row-8">
+                        <button type="button" id="installTermSaveBtn" class="refresh-btn btn-sm">Save</button>
+                        <button type="button" class="close-popup" id="installTermCloseBtn" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="popup-content">
+                    <div class="install-progress"><div class="install-progress-bar" id="installProgressBar"></div></div>
+                    <div class="install-stage" id="installStage">Preparing...</div>
+                    <pre class="json-code install-output" id="installTermOutput"></pre>
+                    <div class="install-hint">Volume keys: Vol+ select · Vol- next</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="changelogPopup" class="popup-overlay centered">
+            <div class="popup fixed-height popup-w480">
+                <div class="popup-header">
+                    <h3>Release Notes</h3>
+                    <button type="button" class="close-popup" id="closeChangelogPopup">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="popup-content pad-16-20" id="changelogContent"></div>
             </div>
         </div>
     </div>

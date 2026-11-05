@@ -13,7 +13,7 @@
 > **[Core Logic & Lockdown Stages](#core)**<br>
 > **[Soft Reboot Detection](#soft-reboot)**<br>
 > **[Boot Script Protection](#scripts)**<br>
-> **[Action Menu & VSKL](#action-menu)**<br>
+> **[Action Menu & Key Input](#action-menu)**<br>
 > **[WebUI Dashboard](#dashboard)**<br>
 > **[Items Control Center](#items)**<br>
 > **[Settings & Whitelist](#settings)**<br>
@@ -32,7 +32,7 @@ AshReXcue isn't just a "bootloop fixer" it's an intelligent supervisor with a ti
 * **Initialization:** At `post-fs-data`, AshReXcue snapshots your module list (and boot scripts, if enabled), increments a "Loop Counter", and sets a strict `booting` state lock.
 * **Live Status Description:** The module's description in your root manager swaps live to `⏳ Booting... Monitoring stability, pull to refresh for status.` for the duration of the boot sequence. The original description is safely stashed (`orig_description`) and restored automatically once `service.sh` finishes.
 * **Monitoring:** The decoupled `monitor.sh` tracking payload initializes while the main service waits for `sys.boot_completed`.
-* **SystemUI Guard:** The script aggressively tracks **SystemUI** (`com.android.systemui`) for your defined **Stability Time**. If SystemUI crashes and restarts 3 times during this stability window, AshReXcue instantly flags the boot as a failure and triggers crash-reboot protection to break the loop.
+* **Framework Guard:** The script watches the core framework — **surfaceflinger**, **zygote**, **system_server**, and **SystemUI** — by PID for your defined **Stability Time**. If three restarts are detected during this stability window, AshReXcue flags the boot as a failure and triggers crash-reboot protection to break the loop. With **Extra Stability** enabled, `servicemanager` and `vold` join the same watch list.
 * **Success:** If stable, the Loop Counter resets, the `booted` state unlocks, the active module/script list is saved as the "Known Good" state, the original description is restored, orphaned entries are scrubbed from the Whitelist, and the **boot marker** (Boot ID + Kernel Uptime) is saved for soft reboot detection on the next boot.
 
 ### 2. The Three Stages of Lockdown
@@ -98,22 +98,22 @@ In environments where soft reboots only trigger `post-fs-data.sh` (which increme
 <a id="scripts"></a>
 ## 📜 Boot Script Protection
 
-AshReXcue extends its differential engine beyond root modules to cover early and late boot scripts.
+AshReXcue extends its differential engine beyond root modules to cover late boot scripts.
 
-* **Monitored Directories:** `service.d`, `post-mount.d`, and `post-fs-data.d`.
+* **Monitored Directories:** `service.d` only. Scripts in `post-mount.d` and `post-fs-data.d` appear in the Items tab for manual management but are not auto-protected, since they run before this module's own boot scripts.
 * **Toggle:** Controlled by the **Boot Scripts (.d)** switch in Settings (`monitor_scripts`). Disabled by default on fresh installs unless enabled during setup.
 * **Isolation, Not Deletion:** When a script is disabled by protection logic, it is moved into an internal vault at `/data/adb/ashlooper/` and the original path is replaced with a `chmod 000` dummy file — blocking execution without losing the file. Its original permission bits are preserved in the filename for exact restoration later.
-* **Identification Format:** Scripts are tracked and whitelisted using a `prefix:filename` scheme — `svc:` for `service.d`, `pmd:` for `post-mount.d`, and `pfd:` for `post-fs-data.d`.
+* **Identification Format:** Scripts are tracked and whitelisted using a `prefix:filename` scheme — `svc:` for `service.d`.
 * **Recovery:** Isolated scripts can be restored from the **Items** tab in the WebUI, or via the **Restore Disabled Items** option in the Action Menu.
 
 ---
 
 <a id="action-menu"></a>
-## ⚙️ Action Menu & VSKL Input
+## ⚙️ Action Menu & Key Input
 
 AshReXcue features a built-in interactive CLI menu accessible via your root manager's "Action" button.
 
-* **VSKL (Volume/Screen Key Listener):** Navigate the Action Menu using either your physical **Volume Keys** or direct **Screen Touches**. Screen touches now select the highlighted option instead of cycling through options.
+* **Volume & Screen Input:** Navigate the Action Menu using either your physical **Volume Keys** or direct **Screen Touches** — **Vol+** selects the highlighted option, **Vol-** moves back, and a touch advances to the next option.
 * **Anti-Stall:** The input listener features a max-retry limit to prevent infinite hangs during boot or terminal execution if hardware keys aren't detected.
 * **Pre-emptive Port Verification:** Before launching the WebUI, `action.sh` actively checks `/proc/net/tcp` to ensure the dynamically generated localhost port isn't occupied by another system process, preventing launch failures.
 * **Menu Options:**
@@ -175,18 +175,18 @@ A dedicated **Items** tab gives you direct, granular control over everything Ash
 <a id="settings"></a>
 ## ⚙️ Configuration & Settings
 
-You can adjust these values inside the WebUI > Settings tab.
+You can adjust these values inside the WebUI > Settings tab. Values are validated on every boot and when the WebUI loads malformed or out-of-range entries are reset to their defaults.
 
 ### 🔰 Whitelist (Modules + Scripts)
 
 * **Function:** Protects selected modules and boot scripts from being disabled during a Stage 2 Standard Lockdown. (Note: A Stage 3 Full Lockdown overrides this).
 * **Auto-Maintenance:** The service automatically cleans the whitelist array on every successful boot, removing entries for modules you have uninstalled.
-* **Smart Migration:** If you upgrade to a newer AshReXcue version, the installer automatically detects and restores your old whitelist and stability time.
+* **Smart Migration:** If you upgrade to a newer AshReXcue version, the installer automatically detects and restores your old whitelist and stability time. A saved stability time outside 45s - 90s is replaced with the default and flagged during install.
 
 ### 📜 Boot Scripts (.d)
 
 * **Toggle:** Enable/Disable (`monitor_scripts`)
-* **Function:** When enabled, AshReXcue extends full differential tracking, whitelisting, and lockdown protection to `service.d`, `post-mount.d`, and `post-fs-data.d`.
+* **Function:** When enabled, AshReXcue extends full differential tracking, whitelisting, and lockdown protection to `service.d` scripts only. `post-mount.d` and `post-fs-data.d` scripts stay visible in the Items tab for manual management but are not auto-protected.
 * **Note:** Leave this off if you don't run custom boot scripts, to keep boot-time scanning minimal.
 
 ### ⏱️ Boot Timeout
@@ -204,13 +204,14 @@ You can adjust these values inside the WebUI > Settings tab.
 
 ### ⏳ Stability Time
 
-* **Range:** 35s - 120s
-* **Function:** How long to monitor the system *after* boot completes. If `com.android.systemui` crash-loops (3 restarts) during this window, it triggers protection.
+* **Range:** 45s - 90s
+* **Default:** 60s
+* **Function:** How long to monitor the framework *after* boot completes. Three restarts of a watched framework process during this window trigger protection.
 
 ### 🔬 Extra Stability Checks
 
 * **Toggle:** Enable/Disable
-* **Function:** Adds additional daemon monitoring for `servicemanager` and `vold`.
+* **Function:** Adds `servicemanager` and `vold` to the process watch list, so their restarts count toward the same limit.
 * **Warning:** Only enable this if you are debugging deep system crashes. On some minimal ROMs, these services might behave unexpectedly.
 
 ---
@@ -267,7 +268,7 @@ If your device has additional partitions you want backed up, you can request sup
 ### 🔴 Critical Warnings
 
 > [!WARNING]
-> DO NOT modify `settings.prop` manually unless you know exactly what you are doing. A bad syntax error here can break the protection logic. Use the WebUI whenever possible.
+> DO NOT modify `settings.prop` manually unless you know exactly what you are doing. Invalid or out-of-range values are reset to their defaults on the next boot or when the WebUI opens, so hand edits may be overwritten. Use the WebUI whenever possible.
 
 > [!CAUTION]
 > DO NOT use AshReXcue alongside other bootloop saver modules (e.g., Magisk Bootloop Protector). They will conflict, fight for control, and likely cause a permanent bootloop.

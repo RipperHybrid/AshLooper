@@ -11,6 +11,10 @@ SERVICE_D="/data/adb/service.d"
 POSTMOUNT_D="/data/adb/post-mount.d"
 POSTFSDATA_D="/data/adb/post-fs-data.d"
 
+STAB_MIN=45
+STAB_MAX=90
+STAB_DEFAULT=60
+
 chooseport() {
   # Original idea by chainfire and ianmacd @xda-developers
   # Touch support by AshBorn (@Ripper_Hybrid)
@@ -60,12 +64,28 @@ chooseport() {
   done
 }
 
+in_range() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$1" -ge "$2" ] && [ "$1" -le "$3" ]
+}
 
-delete() { rm -f "$@"; }
-delete_recursive() { rm -rf "$@"; }
+check_bins() {
+    MISSING_BIN=""
+    FOUND_BINS=""
+    for b in "$@"; do
+        f="$MODPATH/bin/$b"
+        [ -s "$f" ] || { MISSING_BIN="$b"; return 1; }
+        [ -x "$f" ] || chmod 755 "$f" 2>/dev/null
+        "$f" </dev/null >/dev/null 2>&1
+        case $? in 126|127) MISSING_BIN="$b"; return 1 ;; esac
+        FOUND_BINS="$FOUND_BINS $b"
+    done
+    FOUND_BINS="${FOUND_BINS# }"
+    return 0
+}
 
 find_busybox() {
-    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox /system/bin/busybox; do
+    for candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do
         if [ -f "$candidate" ] && [ -x "$candidate" ]; then
             if "$candidate" true >/dev/null 2>&1; then
                 echo "$candidate"
@@ -165,7 +185,7 @@ get_prop() {
         return 1
     fi
 
-    local value=$(grep "^$prop=" "$target_file" 2>/dev/null | head -n 1 | cut -d'=' -f2-)
+    local value=$(grep -E "^[[:space:]]*$prop=" "$target_file" 2>/dev/null | head -n 1 | cut -d'=' -f2-)
     value=$(printf '%s' "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/\r$//')
     printf '%s' "$value"
 }
@@ -242,14 +262,14 @@ modify_prop() {
     fi
 
     if [ "$action" = "+" ]; then
-        if grep -q "^$value=" "$target_file"; then
-            current=$(grep "^$value=" "$target_file" | cut -d'=' -f2)
+        if grep -qE "^[[:space:]]*$value=" "$target_file"; then
+            current=$(grep -E "^[[:space:]]*$value=" "$target_file" | head -n 1 | cut -d'=' -f2)
             case "$current" in
                 ''|*[!0-9]*) current=0 ;;
             esac
             new_value=$((current + 1))
 
-            sed -i "s~^$value=.*~$value=$new_value~" "$target_file" || return 1
+            sed -i -E "s~^[[:space:]]*$value=.*~$value=$new_value~" "$target_file" || return 1
 
             if [ "$silent" = false ]; then
                 log "Increased $value in $(basename "$target_file"): $current → $new_value"
@@ -260,7 +280,7 @@ modify_prop() {
             fi
         fi
     elif [ "$action" = "sd" ]; then
-        if grep -q "^orig_description=" "$target_file" 2>/dev/null; then
+        if grep -qE "^[[:space:]]*orig_description=" "$target_file" 2>/dev/null; then
             [ "$silent" = false ] && log "orig_description already saved in $(basename "$target_file"), skipping"
         else
             cur=$(get_prop "description" "$target_file")
@@ -275,17 +295,17 @@ modify_prop() {
     elif [ "$action" = "rs" ]; then
         saved=$(get_prop "orig_description" "$target_file")
         if [ -n "$saved" ]; then
-            local safe_value=$(echo "$saved" | sed 's/&/\\&/g')
-            sed -i "s~^description=.*~description=$safe_value~" "$target_file" || return 1
+            local safe_value=$(echo "$saved" | sed 's/[&~]/\\&/g')
+            sed -i -E "s~^[[:space:]]*description=.*~description=$safe_value~" "$target_file" || return 1
             sed -i '/^orig_description=/d' "$target_file"
             if [ "$silent" = false ]; then
                 log "Restored original description in $(basename "$target_file")"
             fi
         fi
     else
-        if grep -q "^$action=" "$target_file"; then
-            local safe_value=$(echo "$value" | sed 's/&/\\&/g')
-            sed -i "s~^$action=.*~$action=$safe_value~" "$target_file" || return 1
+        if grep -qE "^[[:space:]]*$action=" "$target_file"; then
+            local safe_value=$(echo "$value" | sed 's/[&~]/\\&/g')
+            sed -i -E "s~^[[:space:]]*$action=.*~$action=$safe_value~" "$target_file" || return 1
 
             if [ "$silent" = false ]; then
                 log "Set $action to $value in $(basename "$target_file")"
@@ -296,6 +316,127 @@ modify_prop() {
             fi
         fi
     fi
+}
+
+fix_prop() {
+    if grep -qE "^[[:space:]]*$1=" "$SETTINGS"; then
+        modify_prop -s "$1" "$2"
+    else
+        [ -n "$(tail -c1 "$SETTINGS")" ] && printf '\n' >> "$SETTINGS"
+        printf '%s=%s\n' "$1" "$2" >> "$SETTINGS"
+    fi
+}
+
+sanitize_settings() {
+    mkdir -p "$LOG_DIR"
+    s_changed=0
+
+    s_mode=$(get_prop "mode")
+    case "$s_mode" in
+        1|2) ;;
+        *) fix_prop "mode" "1"; log "Warning sanitized mode to 1 (was: $s_mode)"; s_changed=1 ;;
+    esac
+
+    s_thresh=$(get_prop "threshold")
+    case "$s_thresh" in
+        1|2|3|4) ;;
+        *) fix_prop "threshold" "2"; log "Warning sanitized threshold to 2 (was: $s_thresh)"; s_changed=1 ;;
+    esac
+
+    s_to=$(get_prop "timeout")
+    if ! in_range "$s_to" 1 100; then
+        fix_prop "timeout" "60"; log "Warning sanitized timeout to 60 (was: $s_to)"; s_changed=1
+    fi
+
+    s_stab=$(get_prop "stability_time")
+    if ! in_range "$s_stab" "$STAB_MIN" "$STAB_MAX"; then
+        fix_prop "stability_time" "$STAB_DEFAULT"; log "Warning sanitized stability_time to $STAB_DEFAULT (was: $s_stab)"; s_changed=1
+    fi
+
+    s_es=$(get_prop "extra_stability")
+    case "$s_es" in
+        On|Off) ;;
+        *) fix_prop "extra_stability" "Off"; log "Warning sanitized extra_stability to Off (was: $s_es)"; s_changed=1 ;;
+    esac
+
+    s_ms=$(get_prop "monitor_scripts")
+    case "$s_ms" in
+        On|Off) ;;
+        *) fix_prop "monitor_scripts" "Off"; log "Warning sanitized monitor_scripts to Off (was: $s_ms)"; s_changed=1 ;;
+    esac
+
+    s_loops=$(get_prop "loops")
+    case "$s_loops" in
+        ''|*[!0-9]*) fix_prop "loops" "0"; log "Warning sanitized loops to 0 (was: $s_loops)"; s_changed=1 ;;
+        *)
+            if [ "$s_loops" -gt 10 ]; then
+                fix_prop "loops" "0"; log "Warning sanitized loops to 0 (was: $s_loops)"; s_changed=1
+            fi
+            ;;
+    esac
+
+    s_disable=$(get_prop "disable")
+    case "$s_disable" in
+        none|partial|full) ;;
+        *) fix_prop "disable" "none"; log "Warning sanitized disable to none (was: $s_disable)"; s_changed=1 ;;
+    esac
+
+    s_log=$(get_prop "log")
+    case "$s_log" in
+        *-*) ;;
+        *) fix_prop "log" "1-0"; log "Warning sanitized log to 1-0 (was: $s_log)"; s_changed=1 ;;
+    esac
+
+    if [ "$s_changed" -eq 1 ]; then
+        write_description
+        log "Settings sanitized. Turns out reading the comments is free. Try it next time."
+    fi
+}
+
+write_description() {
+    d_mode=$(get_prop "mode")
+    case "$d_mode" in
+        2) d_mode="DMR" ;;
+        *) d_mode="DM" ;;
+    esac
+    d_thresh=$(get_prop "threshold")
+    case "$d_thresh" in ''|*[!0-9]*) d_thresh=1 ;; esac
+    if [ "$d_thresh" = "1" ]; then
+        d_boot_word="boot"
+    else
+        d_boot_word="boots"
+    fi
+    d_timeout=$(get_prop "timeout")
+    case "$d_timeout" in ''|*[!0-9]*) d_timeout=60 ;; esac
+    d_scripts=$(get_prop "monitor_scripts")
+    case "$d_scripts" in ''|none) d_scripts="Off" ;; esac
+    d_stab_time=$(get_prop "stability_time")
+    if ! in_range "$d_stab_time" "$STAB_MIN" "$STAB_MAX"; then
+        d_stab="Stability: Off"
+    else
+        d_stab="Stability: On (${d_stab_time}s)"
+    fi
+    d_wl=$(get_prop "whitelist" | tr -d " '\"\r\n")
+    d_wl_mod=0
+    d_wl_scr=0
+    for d_wl_item in $(printf '%s' "$d_wl" | tr ',' ' '); do
+        if [ -n "$d_wl_item" ] && [ "$d_wl_item" != "AshLooper" ]; then
+            case "$d_wl_item" in
+                svc:*) d_wl_scr=$((d_wl_scr + 1)) ;;
+                *) d_wl_mod=$((d_wl_mod + 1)) ;;
+            esac
+        fi
+    done
+    if [ "$d_wl_mod" -gt 0 ] && [ "$d_wl_scr" -gt 0 ]; then
+        d_wl_text="${d_wl_mod} Module / ${d_wl_scr} Script"
+    elif [ "$d_wl_mod" -gt 0 ]; then
+        d_wl_text="${d_wl_mod} Module"
+    elif [ "$d_wl_scr" -gt 0 ]; then
+        d_wl_text="${d_wl_scr} Script"
+    else
+        d_wl_text="None"
+    fi
+    modify_prop -s "description" "🔰 Status: Mode $d_mode | Threshold: ${d_thresh} ${d_boot_word} | Timeout: ${d_timeout}s | Scripts (.d): $d_scripts | ${d_stab} | Whitelist: ${d_wl_text}." "$MODPATH/module.prop"
 }
 
 set_log_file() {
@@ -414,8 +555,8 @@ list_modules() {
         fi
     done
 
-    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
-        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+    if [ "$(get_prop "monitor_scripts")" != "Off" ]; then
+        for scandir in "$SERVICE_D:svc"; do
             dpath="${scandir%%:*}"
             prefix="${scandir##*:}"
             [ -d "$dpath" ] || continue
@@ -441,7 +582,7 @@ list_modules() {
             done
         done
 
-        for f in "$ASHLOOPER_DIR"/*.svc.* "$ASHLOOPER_DIR"/*.pmd.* "$ASHLOOPER_DIR"/*.pfd.*; do
+        for f in "$ASHLOOPER_DIR"/*.svc.*; do
             [ -f "$f" ] || continue
             base=$(basename "$f")
             fname_ext="${base%.*}"
@@ -522,13 +663,21 @@ restore_script() {
 }
 
 lockdown() {
+    case "$(get_prop "disable")" in
+        none|partial|full) ;;
+        *)
+            log "Error: unexpected disable value '$(get_prop "disable")' in lockdown — aborting without action."
+            return 1
+            ;;
+    esac
+
     local MODE=$(get_prop "mode")
     local LOCKDOWN_TYPE="${1:-normal}"
     threshold=$(get_prop "threshold")
     whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
 
     if [ "$LOCKDOWN_TYPE" = "nuke" ]; then
-        log "EXTREME MEASURE: Deleting all non-whitelisted scripts to guarantee boot."
+        log "EXTREME MEASURE: Disabling all non-whitelisted scripts to guarantee boot."
     elif [ "$LOCKDOWN_TYPE" = "full" ]; then
         log "Full Lockdown: Threshold ($threshold) reached. Disabling ALL modules including AshLooper..."
     else
@@ -568,8 +717,8 @@ lockdown() {
         fi
     done
 
-    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
-        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+    if [ "$(get_prop "monitor_scripts")" != "Off" ]; then
+        for scandir in "$SERVICE_D:svc"; do
             dpath="${scandir%%:*}"
             prefix="${scandir##*:}"
             [ -d "$dpath" ] || continue
@@ -654,8 +803,8 @@ create_mod_list() {
         fi
     done
 
-    if [ "$(get_prop "monitor_scripts")" != "false" ]; then
-        for scandir in "$SERVICE_D:svc" "$POSTMOUNT_D:pmd" "$POSTFSDATA_D:pfd"; do
+    if [ "$(get_prop "monitor_scripts")" != "Off" ]; then
+        for scandir in "$SERVICE_D:svc"; do
             dpath="${scandir%%:*}"
             prefix="${scandir##*:}"
             [ -d "$dpath" ] || continue
@@ -678,7 +827,7 @@ create_mod_list() {
             done
         done
 
-        for f in "$ASHLOOPER_DIR"/*.svc.* "$ASHLOOPER_DIR"/*.pmd.* "$ASHLOOPER_DIR"/*.pfd.*; do
+        for f in "$ASHLOOPER_DIR"/*.svc.*; do
             [ -f "$f" ] || continue
             base=$(basename "$f")
             perm="${base##*.}"
@@ -702,6 +851,14 @@ create_mod_list() {
 }
 
 disable_new_mods() {
+    case "$(get_prop "disable")" in
+        none|partial|full) ;;
+        *)
+            log "Error: unexpected disable value '$(get_prop "disable")' in disable_new_mods — aborting without action."
+            return 1
+            ;;
+    esac
+
     local MODE=$(get_prop "mode")
     whitelist=$(get_prop "whitelist" | sed 's/"//g' | sed "s/'//g" | sed 's/ //g')
 
@@ -710,6 +867,9 @@ disable_new_mods() {
         lockdown
         return
     fi
+
+    check_bins jq || { log "Error missing binary: $MISSING_BIN. Invoking lockdown."; lockdown; return; }
+    log "Binary OK: $FOUND_BINS"
 
     changed_ids=$(
         "$JQ" -n --slurpfile new "$TMP_FILE" --slurpfile old "$MODULE_LIST" '
@@ -757,7 +917,7 @@ disable_new_mods() {
 
     for id_clean in $target_ids; do
         case "$id_clean" in
-            svc:*|pmd:*|pfd:*)
+            svc:*)
                 disable_script "$id_clean"
                 ;;
             *)
@@ -817,6 +977,14 @@ handle_boot_loop() {
 }
 
 trigger_crash_reboot() {
+    case "$(get_prop "disable")" in
+        none|partial|full) ;;
+        *)
+            log "Error: unexpected disable value '$(get_prop "disable")' in trigger_crash_reboot — aborting without reboot."
+            return 1
+            ;;
+    esac
+
     log "Crash detected. Restoring true loop count $real_loops and disable mode $real_disable."
     modify_prop "loops" "$real_loops"
     modify_prop "disable" "$real_disable"
